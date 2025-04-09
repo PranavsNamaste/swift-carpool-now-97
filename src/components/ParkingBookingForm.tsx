@@ -10,7 +10,9 @@ import {
   CreditCard,
   Shield,
   Zap,
-  Timer
+  Timer,
+  Heart,
+  Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,132 +41,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { useParking } from '@/contexts/ParkingContext';
 
 type ParkingType = 'regular' | 'covered' | 'valet';
 
-interface ParkingOption {
-  id: ParkingType;
-  name: string;
-  description: string;
-  pricePerHour: number;
-  availableSpots: number;
-  icon: JSX.Element;
-  features?: {
-    surveillance: boolean;
-    evCharging: boolean;
-    covered: boolean;
-  };
-}
-
-interface ParkingSpot {
-  id: number;
-  name: string;
-  distance: string;
-  address: string;
-  rating: number;
-  pricePerHour: number;
-  availableSpots: number;
-  features: {
-    surveillance: boolean;
-    evCharging: boolean;
-    covered: boolean;
-  };
-  options: ParkingOption[];
-}
-
-const parkingOptions: ParkingOption[] = [
-  {
-    id: 'regular',
-    name: 'Regular',
-    description: 'Standard outdoor parking spot',
-    pricePerHour: 2.50,
-    availableSpots: 15,
-    icon: <CircleParking className="h-5 w-5" />,
-    features: {
-      surveillance: true,
-      evCharging: false,
-      covered: false
-    }
-  },
-  {
-    id: 'covered',
-    name: 'Covered',
-    description: 'Sheltered parking with protection',
-    pricePerHour: 4.75,
-    availableSpots: 8,
-    icon: <CircleParking className="h-5 w-5" />,
-    features: {
-      surveillance: true,
-      evCharging: false,
-      covered: true
-    }
-  },
-  {
-    id: 'valet',
-    name: 'Valet',
-    description: 'Premium valet parking service',
-    pricePerHour: 7.90,
-    availableSpots: 3,
-    icon: <Car className="h-5 w-5" />,
-    features: {
-      surveillance: true,
-      evCharging: true,
-      covered: true
-    }
-  }
-];
-
-const initialParkingSpots: ParkingSpot[] = [
-  {
-    id: 1,
-    name: "Downtown Plaza Parking",
-    distance: "0.3 miles",
-    address: "123 Main St, Downtown",
-    rating: 4.5,
-    pricePerHour: 3.50,
-    availableSpots: 25,
-    features: {
-      surveillance: true,
-      evCharging: true,
-      covered: false
-    },
-    options: parkingOptions
-  },
-  {
-    id: 2,
-    name: "City Center Garage",
-    distance: "0.7 miles",
-    address: "456 Union Ave, City Center",
-    rating: 4.2,
-    pricePerHour: 2.75,
-    availableSpots: 10,
-    features: {
-      surveillance: true,
-      evCharging: false,
-      covered: true
-    },
-    options: parkingOptions
-  },
-  {
-    id: 3,
-    name: "Market Street Parking",
-    distance: "1.2 miles",
-    address: "789 Market St, West Side",
-    rating: 4.8,
-    pricePerHour: 5.00,
-    availableSpots: 5,
-    features: {
-      surveillance: false,
-      evCharging: true,
-      covered: false
-    },
-    options: parkingOptions
-  }
-];
-
 const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: number; lng: number } | null }) => {
   const [location, setLocation] = useState('');
-  const [selectedParking, setSelectedParking] = useState<ParkingSpot | null>(null);
+  const [selectedParking, setSelectedParking] = useState<any | null>(null);
   const [selectedOption, setSelectedOption] = useState<ParkingType>('regular');
   const [bookingStep, setBookingStep] = useState<'search' | 'spots' | 'options' | 'payment' | 'confirmation'>('search');
   const [duration, setDuration] = useState(1); // hours
@@ -172,9 +55,21 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   const [reserveTime, setReserveTime] = useState('');
   const [reserveDuration, setReserveDuration] = useState(1); // hours
   const [totalPrice, setTotalPrice] = useState(0);
-  const [nearbyParkingSpots, setNearbyParkingSpots] = useState<ParkingSpot[]>(initialParkingSpots);
   const [activeTab, setActiveTab] = useState('now');
   const { toast } = useToast();
+
+  // Use the parking context
+  const { 
+    getFilteredParkings, 
+    currentLocation, 
+    setCurrentLocation, 
+    locationParkings,
+    saveParking,
+    removeParking,
+    isSaved
+  } = useParking();
+
+  const nearbyParkingSpots = getFilteredParkings();
 
   useEffect(() => {
     if (selectedLocation) {
@@ -185,7 +80,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
 
   useEffect(() => {
     if (selectedParking && selectedOption) {
-      const option = selectedParking.options.find(opt => opt.id === selectedOption);
+      const option = selectedParking.options.find((opt: any) => opt.id === selectedOption);
       if (option) {
         const basePrice = option.pricePerHour * (activeTab === 'now' ? duration : reserveDuration);
         // Add a $5 surcharge for reservations
@@ -203,10 +98,18 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
       });
       return;
     }
+    
+    // Set the current location based on input
+    const locationsArray = Object.keys(locationParkings);
+    const matchedLocation = locationsArray.find(loc => 
+      location.toLowerCase().includes(loc.toLowerCase())
+    ) || locationsArray[0];
+    
+    setCurrentLocation(matchedLocation);
     setBookingStep('spots');
   };
 
-  const handleSelectParking = (parking: ParkingSpot) => {
+  const handleSelectParking = (parking: any) => {
     setSelectedParking(parking);
     setBookingStep('options');
   };
@@ -216,31 +119,8 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   };
 
   const decreaseAvailableSpots = () => {
-    // Decrease the available spots by 1
-    if (selectedParking && selectedOption) {
-      const updatedParkingSpots = nearbyParkingSpots.map(spot => {
-        if (spot.id === selectedParking.id) {
-          const updatedOptions = spot.options.map(opt => {
-            if (opt.id === selectedOption) {
-              return {
-                ...opt,
-                availableSpots: Math.max(0, opt.availableSpots - 1)
-              };
-            }
-            return opt;
-          });
-          
-          return {
-            ...spot,
-            availableSpots: Math.max(0, spot.availableSpots - 1),
-            options: updatedOptions
-          };
-        }
-        return spot;
-      });
-      
-      setNearbyParkingSpots(updatedParkingSpots);
-    }
+    // This functionality would be handled by the backend in a real app
+    console.log("Decreasing available spots for", selectedParking?.name);
   };
 
   const handleConfirmBooking = () => {
@@ -271,6 +151,26 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     }
   };
 
+  const handleToggleSaveParking = (parking: any, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation();
+    }
+    
+    if (isSaved(parking.id)) {
+      removeParking(parking.id);
+      toast({
+        title: "Removed from saved",
+        description: `${parking.name} has been removed from your saved parkings.`
+      });
+    } else {
+      saveParking(parking);
+      toast({
+        title: "Added to saved",
+        description: `${parking.name} has been added to your saved parkings.`
+      });
+    }
+  };
+
   const renderFeatureBadges = (features: { surveillance: boolean, evCharging: boolean, covered: boolean }) => {
     return (
       <div className="flex flex-wrap gap-1 mt-1">
@@ -296,6 +196,28 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     );
   };
 
+  const renderAvailableLocations = () => {
+    return (
+      <div className="mt-2">
+        <p className="text-xs text-muted-foreground mb-1">Available cities:</p>
+        <div className="flex flex-wrap gap-1">
+          {Object.keys(locationParkings).map(city => (
+            <Badge 
+              key={city}
+              variant="outline" 
+              className="text-xs cursor-pointer hover:bg-primary/10"
+              onClick={() => {
+                setLocation(city);
+              }}
+            >
+              {city}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderBookingStep = () => {
     switch (bookingStep) {
       case 'search':
@@ -311,6 +233,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   className="pl-10"
                 />
               </div>
+              {renderAvailableLocations()}
               <div>
                 <Label htmlFor="duration">Duration (hours)</Label>
                 <div className="relative">
@@ -341,7 +264,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                 Back
               </Button>
               <div className="ml-auto text-sm font-medium">
-                Found {nearbyParkingSpots.length} parking spots
+                Found {nearbyParkingSpots.length} parking spots in {currentLocation}
               </div>
             </div>
             
@@ -349,7 +272,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               {nearbyParkingSpots.map((spot) => (
                 <div 
                   key={spot.id}
-                  className="p-3 border rounded-lg cursor-pointer transition-all hover:border-primary hover:bg-primary/5"
+                  className="p-3 border rounded-lg cursor-pointer transition-all hover:border-primary hover:bg-primary/5 relative"
                   onClick={() => handleSelectParking(spot)}
                 >
                   <div className="flex justify-between mb-1">
@@ -367,8 +290,18 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                         ★ {spot.rating}
                       </div>
                     </div>
-                    <div className="font-medium">${spot.pricePerHour}/hr</div>
+                    <div className="font-medium">${spot.pricePerHour.toFixed(2)}/hr</div>
                   </div>
+                  
+                  {/* Save parking button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8"
+                    onClick={(e) => handleToggleSaveParking(spot, e)}
+                  >
+                    <Heart className={`h-5 w-5 ${isSaved(spot.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                  </Button>
                 </div>
               ))}
             </div>
@@ -388,7 +321,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               </div>
             </div>
             
-            <div className="bg-muted/40 p-3 rounded-lg text-sm mb-4">
+            <div className="bg-muted/40 p-3 rounded-lg text-sm mb-4 relative">
               <div className="font-medium mb-1">{selectedParking?.name}</div>
               <div className="text-muted-foreground mb-1">{selectedParking?.address}</div>
               {selectedParking && renderFeatureBadges(selectedParking.features)}
@@ -400,13 +333,23 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   ★ {selectedParking?.rating}
                 </div>
               </div>
+              
+              {/* Save parking button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2 h-8 w-8"
+                onClick={() => selectedParking && handleToggleSaveParking(selectedParking)}
+              >
+                <Heart className={`h-5 w-5 ${selectedParking && isSaved(selectedParking.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+              </Button>
             </div>
             
             <div className="space-y-2 mb-4">
               <p className="text-sm font-medium">Choose parking type</p>
               
               <div className="grid gap-2">
-                {selectedParking?.options.map((option) => (
+                {selectedParking?.options.map((option: any) => (
                   <div
                     key={option.id}
                     className={`p-3 border rounded-lg cursor-pointer transition-all flex items-center justify-between ${
@@ -418,7 +361,12 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                       <div className={`p-2 rounded-full mr-3 ${
                         selectedOption === option.id ? 'bg-primary text-white' : 'bg-accent'
                       }`}>
-                        {option.icon}
+                        {option.id === 'regular' ? 
+                          <CircleParking className="h-5 w-5" /> : 
+                          option.id === 'covered' ? 
+                          <CircleParking className="h-5 w-5" /> : 
+                          <Car className="h-5 w-5" />
+                        }
                       </div>
                       <div>
                         <p className="font-medium">{option.name}</p>
@@ -459,10 +407,10 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               </div>
             </div>
             
-            <div className="bg-muted/40 p-3 rounded-lg text-sm mb-4">
+            <div className="bg-muted/40 p-3 rounded-lg text-sm mb-4 relative">
               <div className="font-medium mb-1">{selectedParking?.name}</div>
               <div className="text-muted-foreground mb-1">
-                {selectedParking?.options.find(o => o.id === selectedOption)?.name} Parking
+                {selectedParking?.options.find((o: any) => o.id === selectedOption)?.name} Parking
               </div>
               <div className="flex justify-between items-center text-xs">
                 <div className="flex items-center">
@@ -475,6 +423,16 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   </div>
                 )}
               </div>
+              
+              {/* Save parking button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2 h-8 w-8"
+                onClick={() => selectedParking && handleToggleSaveParking(selectedParking)}
+              >
+                <Heart className={`h-5 w-5 ${selectedParking && isSaved(selectedParking.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+              </Button>
             </div>
             
             <div className="space-y-3">
@@ -555,7 +513,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               <div>
                 <div className="text-sm text-muted-foreground">Parking Type</div>
                 <div className="font-medium">
-                  {selectedParking?.options.find(o => o.id === selectedOption)?.name}
+                  {selectedParking?.options.find((o: any) => o.id === selectedOption)?.name}
                 </div>
               </div>
               
@@ -614,6 +572,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                       onChange={(e) => setLocation(e.target.value)}
                     />
                   </div>
+                  {renderAvailableLocations()}
                   
                   <div className="grid grid-cols-2 gap-3">
                     <div>

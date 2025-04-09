@@ -7,7 +7,8 @@ import {
   ChevronDown,
   Shield,
   Zap,
-  Star
+  Star,
+  Heart
 } from 'lucide-react';
 import {
   Sheet,
@@ -27,6 +28,7 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useParking } from '@/contexts/ParkingContext';
 
 // Sample parking history data
 const initialParkingHistory = [
@@ -86,12 +88,39 @@ const initialParkingHistory = [
   }
 ];
 
+// Convert history data to match our ParkingSpot interface for saving
+const convertHistoryToParkingSpot = (historyItem: any) => {
+  return {
+    id: historyItem.id + 1000, // Avoid ID collision with real parkings
+    name: historyItem.location,
+    distance: "Previously visited",
+    address: historyItem.address,
+    rating: historyItem.rating > 0 ? historyItem.rating : 4.5,
+    pricePerHour: historyItem.cost / parseInt(historyItem.duration),
+    availableSpots: 15, // Default value
+    features: historyItem.features,
+    latitude: 50, // Default value
+    longitude: 50, // Default value
+    options: [
+      {
+        id: 'regular',
+        name: 'Regular',
+        description: 'Standard outdoor parking spot',
+        pricePerHour: historyItem.cost / parseInt(historyItem.duration),
+        availableSpots: 15,
+        features: historyItem.features
+      }
+    ]
+  };
+};
+
 const ParkingHistory = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeRating, setActiveRating] = useState<number | null>(null);
   const [ratingValue, setRatingValue] = useState(0);
   const [parkingHistory, setParkingHistory] = useState(initialParkingHistory);
   const { toast } = useToast();
+  const { saveParking, removeParking, isSaved } = useParking();
 
   const renderFeatureBadges = (features: { surveillance: boolean, evCharging: boolean, covered: boolean }) => {
     return (
@@ -152,6 +181,24 @@ const ParkingHistory = () => {
     }
   };
 
+  const handleToggleSaveParking = (parking: any) => {
+    const parkingData = convertHistoryToParkingSpot(parking);
+    
+    if (isSaved(parkingData.id)) {
+      removeParking(parkingData.id);
+      toast({
+        title: "Removed from saved",
+        description: `${parking.location} has been removed from your saved parkings.`
+      });
+    } else {
+      saveParking(parkingData);
+      toast({
+        title: "Added to saved",
+        description: `${parking.location} has been added to your saved parkings.`
+      });
+    }
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
@@ -170,116 +217,129 @@ const ParkingHistory = () => {
         
         <div className="space-y-1">
           <Accordion type="single" collapsible className="w-full">
-            {parkingHistory.map((parking) => (
-              <AccordionItem key={parking.id} value={parking.id.toString()}>
-                <AccordionTrigger className="py-3 px-2 hover:bg-accent rounded-md transition-all">
-                  <div className="flex items-start space-x-3 w-full text-left">
-                    <div className="bg-primary/10 p-2 rounded-full">
-                      <CircleParking className="h-5 w-5 text-primary" />
+            {parkingHistory.map((parking) => {
+              const historyParkingData = convertHistoryToParkingSpot(parking);
+              const isParkingSaved = isSaved(historyParkingData.id);
+              
+              return (
+                <AccordionItem key={parking.id} value={parking.id.toString()}>
+                  <AccordionTrigger className="py-3 px-2 hover:bg-accent rounded-md transition-all">
+                    <div className="flex items-start space-x-3 w-full text-left">
+                      <div className="bg-primary/10 p-2 rounded-full">
+                        <CircleParking className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{parking.location}</p>
+                        <p className="text-xs text-muted-foreground">{parking.date}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">${parking.cost.toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">{parking.duration}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{parking.location}</p>
-                      <p className="text-xs text-muted-foreground">{parking.date}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">${parking.cost.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">{parking.duration}</p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-2 pb-3">
-                  <div className="space-y-2 text-sm">
-                    <div className="grid grid-cols-2 gap-1">
-                      <div className="text-muted-foreground">Address:</div>
-                      <div>{parking.address}</div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                      <div className="text-muted-foreground">Date:</div>
-                      <div>{parking.date}</div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                      <div className="text-muted-foreground">Time:</div>
-                      <div>{parking.startTime} - {parking.endTime}</div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                      <div className="text-muted-foreground">Duration:</div>
-                      <div>{parking.duration}</div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                      <div className="text-muted-foreground">Parking Type:</div>
-                      <div>{parking.parkingType}</div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                      <div className="text-muted-foreground">Features:</div>
-                      <div>{renderFeatureBadges(parking.features)}</div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                      <div className="text-muted-foreground">Total Cost:</div>
-                      <div className="font-medium">${parking.cost.toFixed(2)}</div>
-                    </div>
-                    
-                    <div className="pt-2">
-                      {parking.rated ? (
-                        <div className="text-sm flex items-center justify-center text-amber-500 bg-amber-50 py-2 rounded">
-                          <Star className="h-4 w-4 mr-1 fill-amber-500" />
-                          Rated: {parking.rating}/5
-                        </div>
-                      ) : activeRating === parking.id ? (
-                        <div className="space-y-2">
-                          <div className="flex justify-center">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <button
-                                key={star}
-                                type="button"
-                                onClick={() => setRatingValue(star)}
-                                className="p-1"
-                              >
-                                <Star
-                                  className={`h-6 w-6 ${
-                                    ratingValue >= star
-                                      ? "text-yellow-400 fill-yellow-400"
-                                      : "text-gray-300"
-                                  }`}
-                                />
-                              </button>
-                            ))}
+                  </AccordionTrigger>
+                  <AccordionContent className="px-2 pb-3">
+                    <div className="space-y-2 text-sm">
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="text-muted-foreground">Address:</div>
+                        <div>{parking.address}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="text-muted-foreground">Date:</div>
+                        <div>{parking.date}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="text-muted-foreground">Time:</div>
+                        <div>{parking.startTime} - {parking.endTime}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="text-muted-foreground">Duration:</div>
+                        <div>{parking.duration}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="text-muted-foreground">Parking Type:</div>
+                        <div>{parking.parkingType}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="text-muted-foreground">Features:</div>
+                        <div>{renderFeatureBadges(parking.features)}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="text-muted-foreground">Total Cost:</div>
+                        <div className="font-medium">${parking.cost.toFixed(2)}</div>
+                      </div>
+                      
+                      <div className="pt-2">
+                        {parking.rated ? (
+                          <div className="text-sm flex items-center justify-center text-amber-500 bg-amber-50 py-2 rounded">
+                            <Star className="h-4 w-4 mr-1 fill-amber-500" />
+                            Rated: {parking.rating}/5
                           </div>
+                        ) : activeRating === parking.id ? (
+                          <div className="space-y-2">
+                            <div className="flex justify-center">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <button
+                                  key={star}
+                                  type="button"
+                                  onClick={() => setRatingValue(star)}
+                                  className="p-1"
+                                >
+                                  <Star
+                                    className={`h-6 w-6 ${
+                                      ratingValue >= star
+                                        ? "text-yellow-400 fill-yellow-400"
+                                        : "text-gray-300"
+                                    }`}
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                            <div className="flex space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="flex-1"
+                                onClick={() => setActiveRating(null)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                className="flex-1"
+                                onClick={handleSubmitRating}
+                              >
+                                Submit
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
                           <div className="flex space-x-2">
                             <Button 
                               variant="outline" 
                               size="sm" 
                               className="flex-1"
-                              onClick={() => setActiveRating(null)}
+                              onClick={() => handleToggleSaveParking(parking)}
                             >
-                              Cancel
+                              <Heart className={`h-4 w-4 mr-1 ${isParkingSaved ? 'fill-red-500 text-red-500' : ''}`} />
+                              {isParkingSaved ? 'Unsave' : 'Save'}
                             </Button>
                             <Button 
+                              variant="outline" 
                               size="sm" 
                               className="flex-1"
-                              onClick={handleSubmitRating}
+                              onClick={() => handleRateParking(parking.id)}
                             >
-                              Submit
+                              <Star className="h-4 w-4 mr-1" /> Rate
                             </Button>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" className="flex-1">Book Again</Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="flex-1"
-                            onClick={() => handleRateParking(parking.id)}
-                          >
-                            <Star className="h-4 w-4 mr-1" /> Rate
-                          </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
           </Accordion>
         </div>
         

@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar';
 import MapComponent from '@/components/MapComponent';
 import ParkingBookingForm from '@/components/ParkingBookingForm';
 import ParkingHistory from '@/components/ParkingHistory';
+import SavedParkings from '@/components/SavedParkings';
 
 const Index = () => {
   const isMobile = useIsMobile();
@@ -32,7 +33,12 @@ const Index = () => {
           flex flex-col
         `}>
           <div className="flex items-center justify-between mb-4">
-            {!isMobile && <ParkingHistory />}
+            {!isMobile && (
+              <div className="flex gap-2">
+                <ParkingHistory />
+                <SavedParkings />
+              </div>
+            )}
             
             <div className="ml-auto">
               {/* We could add map controls here */}

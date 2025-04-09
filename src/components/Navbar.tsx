@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Menu, User, Clock, Star, CircleParking } from 'lucide-react';
+import { Menu, User, Clock, Star, CircleParking, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import ParkingHistory from './ParkingHistory';
+import SavedParkings from './SavedParkings';
 
 const Navbar = () => {
   const isMobile = useIsMobile();
@@ -24,11 +26,9 @@ const Navbar = () => {
 
       <div className="flex items-center gap-2">
         {!isMobile && (
-          <div className="flex gap-4">
-            <Button variant="ghost" size="sm" className="text-sm">
-              <Clock className="h-4 w-4 mr-2" />
-              Parking History
-            </Button>
+          <div className="flex gap-2">
+            <ParkingHistory />
+            <SavedParkings />
             <Button variant="ghost" size="sm" className="text-sm">
               <Star className="h-4 w-4 mr-2" />
               Rate Parking
@@ -72,8 +72,12 @@ const Navbar = () => {
                 Rate Parking
               </Button>
               <Button variant="ghost" className="justify-start">
-                <CircleParking className="h-4 w-4 mr-3" />
+                <Heart className="h-4 w-4 mr-3" />
                 Saved Parkings
+              </Button>
+              <Button variant="ghost" className="justify-start">
+                <CircleParking className="h-4 w-4 mr-3" />
+                Find Parking
               </Button>
               <Button variant="ghost" className="justify-start text-red-500">
                 Sign Out
