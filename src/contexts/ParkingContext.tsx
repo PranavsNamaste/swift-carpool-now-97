@@ -676,6 +676,8 @@ interface ParkingContextType {
   isSaved: (id: number) => boolean;
   addBooking: (booking: any) => void;
   isValidLocation: (location: string) => boolean;
+  updateAvailableSpots: (parkingId: number, vehicleType: string, option: string, decrease: boolean) => void;
+  rateParking: (parkingId: number, rating: number) => void;
 }
 
 const ParkingContext = createContext<ParkingContextType>({
@@ -689,7 +691,9 @@ const ParkingContext = createContext<ParkingContextType>({
   removeParking: () => {},
   isSaved: () => false,
   addBooking: () => {},
-  isValidLocation: () => true
+  isValidLocation: () => true,
+  updateAvailableSpots: () => {},
+  rateParking: () => {}
 });
 
 export const useParking = () => useContext(ParkingContext);
@@ -698,6 +702,7 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [currentLocation, setCurrentLocation] = useState<string>('New York');
   const [savedParkings, setSavedParkings] = useState<any[]>([]);
   const [bookingHistory, setBookingHistory] = useState<any[]>([]);
+  const [parkingData, setParkingData] = useState<typeof parkingLocations>(JSON.parse(JSON.stringify(parkingLocations)));
 
   // Sample completed bookings for demonstration
   const sampleCompletedBookings = [
@@ -809,11 +814,11 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [bookingHistory]);
 
   const getFilteredParkings = () => {
-    return parkingLocations[currentLocation as keyof typeof parkingLocations] || [];
+    return parkingData[currentLocation as keyof typeof parkingData] || [];
   };
 
   const isValidLocation = (location: string) => {
-    return Object.keys(parkingLocations).some(
+    return Object.keys(parkingData).some(
       city => city.toLowerCase() === location.toLowerCase()
     );
   };
@@ -833,7 +838,75 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const addBooking = (booking: any) => {
-    setBookingHistory([...bookingHistory, booking]);
+    // Add the booking to history
+    setBookingHistory(prev => [...prev, booking]);
+    
+    // Update available spots
+    updateAvailableSpots(
+      booking.parkingId, 
+      booking.vehicleType, 
+      booking.parkingType.toLowerCase(), 
+      true
+    );
+  };
+
+  const updateAvailableSpots = (parkingId: number, vehicleType: string, option: string, decrease: boolean) => {
+    // Create a deep copy of the parking data
+    const updatedParkingData = JSON.parse(JSON.stringify(parkingData));
+    
+    // Find the parking location with this ID
+    for (const city in updatedParkingData) {
+      const parkingIndex = updatedParkingData[city].findIndex((p: any) => p.id === parkingId);
+      
+      if (parkingIndex !== -1) {
+        const parking = updatedParkingData[city][parkingIndex];
+        
+        // Update the main parking counts
+        if (vehicleType === 'car') {
+          if (decrease) {
+            parking.availableSpotsCar = Math.max(0, parking.availableSpotsCar - 1);
+          } else {
+            parking.availableSpotsCar += 1;
+          }
+        } else {
+          if (decrease) {
+            parking.availableSpotsMotorbike = Math.max(0, parking.availableSpotsMotorbike - 1);
+          } else {
+            parking.availableSpotsMotorbike += 1;
+          }
+        }
+        
+        // Update the specific option counts
+        const optionKey = option === 'regular' ? 'regular' : option === 'covered' ? 'covered' : 'valet';
+        const optionIndex = parking.options.findIndex((o: any) => o.id === optionKey);
+        
+        if (optionIndex !== -1) {
+          if (vehicleType === 'car') {
+            if (decrease) {
+              parking.options[optionIndex].availableSpotsCar = Math.max(0, parking.options[optionIndex].availableSpotsCar - 1);
+            } else {
+              parking.options[optionIndex].availableSpotsCar += 1;
+            }
+          } else {
+            if (decrease) {
+              parking.options[optionIndex].availableSpotsMotorbike = Math.max(0, parking.options[optionIndex].availableSpotsMotorbike - 1);
+            } else {
+              parking.options[optionIndex].availableSpotsMotorbike += 1;
+            }
+          }
+        }
+        
+        break;
+      }
+    }
+    
+    setParkingData(updatedParkingData);
+  };
+  
+  const rateParking = (parkingId: number, rating: number) => {
+    // In a real app, this would be sent to a server
+    // For demo purposes, we'll just log it
+    console.log(`Rating parking ${parkingId} with ${rating} stars`);
   };
 
   return (
@@ -841,14 +914,16 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       currentLocation,
       setCurrentLocation,
       getFilteredParkings,
-      locationParkings: parkingLocations,
+      locationParkings: parkingData,
       savedParkings,
       bookingHistory,
       saveParking,
       removeParking,
       isSaved,
       addBooking,
-      isValidLocation
+      isValidLocation,
+      updateAvailableSpots,
+      rateParking
     }}>
       {children}
     </ParkingContext.Provider>

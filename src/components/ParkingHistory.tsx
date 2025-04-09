@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { CircleParking, Shield, Zap, Calendar, Clock, Car, Bike, FileText } from 'lucide-react';
+import { CircleParking, Shield, Zap, Calendar, Clock, Car, Bike, FileText, Star, Heart } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useParking } from '@/contexts/ParkingContext';
 import { useUser } from '@/contexts/UserContext';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import ParkingReceipt from './ParkingReceipt';
 import SignInForm from './SignInForm';
 import { useToast } from '@/hooks/use-toast';
@@ -26,8 +26,10 @@ const ParkingHistory = () => {
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [showSignInDialog, setShowSignInDialog] = useState(false);
-  const { bookingHistory } = useParking();
-  const { isAuthenticated, signIn } = useUser();
+  const [showRatingDialog, setShowRatingDialog] = useState(false);
+  const [currentRating, setCurrentRating] = useState(5);
+  const { bookingHistory, saveParking, isSaved, rateParking } = useParking();
+  const { isAuthenticated, signIn, user, updateUser } = useUser();
   const { toast } = useToast();
 
   const handleSignInSuccess = () => {
@@ -38,7 +40,7 @@ const ParkingHistory = () => {
       phone: '1234567890',
       email: 'john.doe@example.com',
       rating: 4.9,
-      bookingCount: 24,
+      bookingCount: bookingHistory.length,
       memberSince: 'April 2025'
     });
     
@@ -52,6 +54,51 @@ const ParkingHistory = () => {
   const handleViewReceipt = (booking: any) => {
     setSelectedBooking(booking);
     setShowReceiptDialog(true);
+  };
+
+  const handleRateParking = (booking: any) => {
+    setSelectedBooking(booking);
+    setCurrentRating(5);
+    setShowRatingDialog(true);
+  };
+
+  const submitRating = () => {
+    if (selectedBooking) {
+      rateParking(selectedBooking.parkingId, currentRating);
+      setShowRatingDialog(false);
+      toast({
+        title: "Rating submitted",
+        description: `You rated ${selectedBooking.parkingName} with ${currentRating} stars.`
+      });
+    }
+  };
+
+  const handleSaveParking = (booking: any) => {
+    if (!isSaved(booking.parkingId)) {
+      const parkingToSave = {
+        id: booking.parkingId,
+        name: booking.parkingName,
+        address: booking.parkingAddress,
+        distance: "From your history",
+        rating: 4.5,
+        pricePerHour: booking.totalPrice / booking.duration,
+        pricePerHourBike: (booking.totalPrice / booking.duration) * 0.6, // 40% discount for bikes
+        availableSpotsCar: 5,
+        availableSpotsMotorbike: 3,
+        features: booking.features
+      };
+      
+      saveParking(parkingToSave);
+      toast({
+        title: "Parking saved",
+        description: `${booking.parkingName} has been saved to your list.`
+      });
+    } else {
+      toast({
+        title: "Already saved",
+        description: `${booking.parkingName} is already in your saved list.`
+      });
+    }
   };
 
   const renderFeatureBadges = (features: { surveillance: boolean, evCharging: boolean, covered: boolean }) => {
@@ -103,7 +150,38 @@ const ParkingHistory = () => {
       setShowSignInDialog(true);
       return;
     }
+    
+    // Update user booking count before opening
+    if (user) {
+      updateUser({
+        ...user,
+        bookingCount: bookingHistory.length
+      });
+    }
+    
     setIsOpen(true);
+  };
+
+  const renderRatingStars = () => {
+    return (
+      <div className="flex items-center justify-center gap-2 py-4">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            onClick={() => setCurrentRating(star)}
+            className="focus:outline-none"
+          >
+            <Star
+              className={`h-8 w-8 ${
+                star <= currentRating
+                  ? 'fill-yellow-400 text-yellow-400'
+                  : 'text-gray-300'
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -192,15 +270,37 @@ const ParkingHistory = () => {
                       
                       <div className="flex justify-between items-center mt-2 pt-2 border-t">
                         <div className="font-medium">${booking.totalPrice.toFixed(2)}</div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="text-xs flex items-center gap-1"
-                          onClick={() => handleViewReceipt(booking)}
-                        >
-                          <FileText className="h-3 w-3" />
-                          Receipt
-                        </Button>
+                        <div className="flex gap-1">
+                          {status === 'completed' && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="text-xs flex items-center gap-1"
+                              onClick={() => handleRateParking(booking)}
+                            >
+                              <Star className="h-3 w-3" />
+                              Rate
+                            </Button>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-xs flex items-center gap-1"
+                            onClick={() => handleSaveParking(booking)}
+                          >
+                            <Heart className="h-3 w-3" />
+                            Save
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-xs flex items-center gap-1"
+                            onClick={() => handleViewReceipt(booking)}
+                          >
+                            <FileText className="h-3 w-3" />
+                            Receipt
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -236,6 +336,28 @@ const ParkingHistory = () => {
             onSuccess={handleSignInSuccess}
             onCancel={() => setShowSignInDialog(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Rating Dialog */}
+      <Dialog open={showRatingDialog} onOpenChange={setShowRatingDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle>Rate Your Parking Experience</DialogTitle>
+          <DialogDescription>
+            How was your experience at {selectedBooking?.parkingName}?
+          </DialogDescription>
+          {renderRatingStars()}
+          <div className="flex justify-end gap-2 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowRatingDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={submitRating}>
+              Submit Rating
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </>

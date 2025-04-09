@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Edit, Star, Clock, Car, MapPin, Shield, User, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -23,6 +22,16 @@ const Profile = () => {
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const { toast } = useToast();
+  
+  // Sync booking count with actual booking history
+  useEffect(() => {
+    if (isAuthenticated && user && user.bookingCount !== bookingHistory.length) {
+      updateUser({
+        ...user,
+        bookingCount: bookingHistory.length
+      });
+    }
+  }, [isAuthenticated, user, bookingHistory.length, updateUser]);
 
   const handleSignInSuccess = () => {
     signIn({
@@ -31,7 +40,7 @@ const Profile = () => {
       phone: '1234567890',
       email: 'john.doe@example.com',
       rating: 4.9,
-      bookingCount: 24,
+      bookingCount: bookingHistory.length, // Set initial booking count from history
       memberSince: 'April 2025'
     });
     
@@ -43,7 +52,13 @@ const Profile = () => {
   };
 
   const handleSaveProfile = (updatedUser: any) => {
-    updateUser(updatedUser);
+    // Keep the booking count synced with actual history
+    const userWithCorrectCount = {
+      ...updatedUser,
+      bookingCount: bookingHistory.length
+    };
+    
+    updateUser(userWithCorrectCount);
     setShowEditDialog(false);
     toast({
       title: "Profile updated",
@@ -139,7 +154,7 @@ const Profile = () => {
           <div className="flex items-center mt-2">
             <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
             <span className="text-sm font-medium">{user?.rating}</span>
-            <span className="text-xs text-muted-foreground ml-1">({user?.bookingCount} rides)</span>
+            <span className="text-xs text-muted-foreground ml-1">({user?.bookingCount} bookings)</span>
           </div>
         </div>
         

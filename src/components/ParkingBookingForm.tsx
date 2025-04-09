@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   MapPin, 
@@ -15,7 +16,8 @@ import {
   Bike,
   AlertTriangle,
   Plus,
-  Minus
+  Minus,
+  Loader
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,6 +81,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   const [locationError, setLocationError] = useState('');
   const [tabChangeConfirm, setTabChangeConfirm] = useState(false);
   const [confirmationTarget, setConfirmationTarget] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Use the parking context
   const { 
@@ -94,7 +97,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   } = useParking();
 
   // Use the user context
-  const { user, isAuthenticated, signIn } = useUser();
+  const { user, isAuthenticated, signIn, updateUser } = useUser();
 
   // Get filtered parkings based on the vehicle type
   const getNearbyParkingSpots = () => {
@@ -152,15 +155,20 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     }
     
     setLocationError('');
+    setIsLoading(true);
     
-    // Set the current location based on input
-    const locationsArray = Object.keys(locationParkings);
-    const matchedLocation = locationsArray.find(loc => 
-      location.toLowerCase() === loc.toLowerCase()
-    ) || locationsArray[0];
-    
-    setCurrentLocation(matchedLocation);
-    setBookingStep('spots');
+    // Simulate loading time
+    setTimeout(() => {
+      // Set the current location based on input
+      const locationsArray = Object.keys(locationParkings);
+      const matchedLocation = locationsArray.find(loc => 
+        location.toLowerCase() === loc.toLowerCase()
+      ) || locationsArray[0];
+      
+      setCurrentLocation(matchedLocation);
+      setBookingStep('spots');
+      setIsLoading(false);
+    }, 1500); // 1.5 seconds loading time
   };
 
   const handleSelectParking = (parking: any) => {
@@ -186,11 +194,6 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     setBookingStep('payment');
   };
 
-  const decreaseAvailableSpots = () => {
-    // This functionality would be handled by the backend in a real app
-    console.log("Decreasing available spots for", selectedParking?.name);
-  };
-
   const handleSignInSuccess = () => {
     // Sign in the user with default data
     signIn({
@@ -211,8 +214,6 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   };
 
   const handleConfirmBooking = () => {
-    decreaseAvailableSpots();
-    
     const now = new Date();
     const orderId = generateOrderId();
     
@@ -236,6 +237,14 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     
     // Add to booking history
     addBooking(booking);
+    
+    // Update user booking count
+    if (user) {
+      updateUser({
+        ...user,
+        bookingCount: user.bookingCount + 1
+      });
+    }
     
     // Set current booking for receipt
     setCurrentBooking(booking);
@@ -430,6 +439,18 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   };
 
   const renderBookingStep = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-lg font-medium">Fetching parking spots...</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Looking for available parking in {location}
+          </p>
+        </div>
+      );
+    }
+    
     switch (bookingStep) {
       case 'search':
         return (
@@ -505,7 +526,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                 >
                   <div className="flex justify-between mb-1">
                     <div className="font-medium">{spot.name}</div>
-                    <div className="text-sm">{spot.distance}</div>
+                    <div className="text-sm pr-8">{spot.distance}</div> {/* Added pr-8 to make room for save button */}
                   </div>
                   <div className="text-sm text-muted-foreground mb-1">{spot.address}</div>
                   {renderFeatureBadges(spot.features)}
@@ -528,7 +549,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                         ★ {spot.rating}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end mr-6">
+                    <div className="flex flex-col items-end">
                       {vehicleType === 'car' ? (
                         <div className="flex items-center gap-1">
                           <Car className="h-3.5 w-3.5" />
@@ -543,7 +564,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                     </div>
                   </div>
                   
-                  {/* Save parking button */}
+                  {/* Save parking button - moved to top right */}
                   <Button
                     variant="ghost"
                     size="icon"
