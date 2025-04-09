@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import Navbar from '@/components/Navbar';
 import MapComponent from '@/components/MapComponent';
-import RideBookingForm from '@/components/RideBookingForm';
-import RideHistory from '@/components/RideHistory';
+import ParkingBookingForm from '@/components/ParkingBookingForm';
+import ParkingHistory from '@/components/ParkingHistory';
 
 const Index = () => {
   const isMobile = useIsMobile();
@@ -32,7 +32,7 @@ const Index = () => {
           flex flex-col
         `}>
           <div className="flex items-center justify-between mb-4">
-            {!isMobile && <RideHistory />}
+            {!isMobile && <ParkingHistory />}
             
             <div className="ml-auto">
               {/* We could add map controls here */}
@@ -45,7 +45,7 @@ const Index = () => {
               ${isMobile ? 'rounded-t-2xl' : 'rounded-2xl'}
               overflow-hidden shadow-xl bg-white
             `}>
-              <RideBookingForm />
+              <ParkingBookingForm selectedLocation={selectedLocation} />
             </div>
           </div>
         </div>

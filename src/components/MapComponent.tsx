@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { MapPin, Navigation, Car } from 'lucide-react';
+import { MapPin, CircleParking, Navigation } from 'lucide-react';
 
 // This is a simplified map component without actual map integration
 // We'll create a simulated map UI for now
@@ -8,13 +8,13 @@ const MapComponent = ({ onMapClick }: { onMapClick?: (location: { lat: number; l
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Simulated car locations
-  const cars = [
-    { id: 1, lat: 40, lng: 20, type: 'Standard' },
-    { id: 2, lat: 25, lng: 15, type: 'Premium' },
-    { id: 3, lat: 60, lng: 35, type: 'Standard' },
-    { id: 4, lat: 70, lng: 50, type: 'XL' },
-    { id: 5, lat: 45, lng: 70, type: 'Standard' },
+  // Simulated parking locations
+  const parkingSpots = [
+    { id: 1, lat: 40, lng: 20, name: 'Downtown Parking', availableSpots: 12, pricePerHour: 5.99 },
+    { id: 2, lat: 25, lng: 15, name: 'Mall Parking', availableSpots: 25, pricePerHour: 3.50 },
+    { id: 3, lat: 60, lng: 35, name: 'Airport Parking', availableSpots: 8, pricePerHour: 7.25 },
+    { id: 4, lat: 70, lng: 50, name: 'Stadium Parking', availableSpots: 35, pricePerHour: 4.99 },
+    { id: 5, lat: 45, lng: 70, name: 'Beach Parking', availableSpots: 5, pricePerHour: 2.75 },
   ];
 
   useEffect(() => {
@@ -64,14 +64,17 @@ const MapComponent = ({ onMapClick }: { onMapClick?: (location: { lat: number; l
         </div>
       )}
       
-      {/* Simulated cars on map */}
-      {mapLoaded && cars.map(car => (
+      {/* Simulated parking spots on map */}
+      {mapLoaded && parkingSpots.map(spot => (
         <div 
-          key={car.id}
+          key={spot.id}
           className="absolute w-6 h-6 -mt-3 -ml-3 pulse-dot"
-          style={{ top: `${car.lat}%`, left: `${car.lng}%` }}
+          style={{ top: `${spot.lat}%`, left: `${spot.lng}%` }}
         >
-          <Car className="w-full h-full text-primary" />
+          <CircleParking className="w-full h-full text-primary" />
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-white px-1.5 py-0.5 rounded text-xs font-medium shadow-sm">
+            ${spot.pricePerHour}
+          </div>
         </div>
       ))}
       
