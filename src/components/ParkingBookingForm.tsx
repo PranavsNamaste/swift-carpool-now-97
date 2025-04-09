@@ -114,7 +114,7 @@ const parkingOptions: ParkingOption[] = [
   }
 ];
 
-const nearbyParkingSpots: ParkingSpot[] = [
+const initialParkingSpots: ParkingSpot[] = [
   {
     id: 1,
     name: "Downtown Plaza Parking",
@@ -172,6 +172,8 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   const [reserveTime, setReserveTime] = useState('');
   const [reserveDuration, setReserveDuration] = useState(1); // hours
   const [totalPrice, setTotalPrice] = useState(0);
+  const [nearbyParkingSpots, setNearbyParkingSpots] = useState<ParkingSpot[]>(initialParkingSpots);
+  const [activeTab, setActiveTab] = useState('now');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -185,13 +187,13 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     if (selectedParking && selectedOption) {
       const option = selectedParking.options.find(opt => opt.id === selectedOption);
       if (option) {
-        const basePrice = option.pricePerHour * duration;
-        // Add a 10% surcharge for reservations
-        const surcharge = bookingStep !== 'search' ? 0.1 * basePrice : 0;
+        const basePrice = option.pricePerHour * (activeTab === 'now' ? duration : reserveDuration);
+        // Add a $5 surcharge for reservations
+        const surcharge = activeTab === 'later' ? 5 : 0;
         setTotalPrice(basePrice + surcharge);
       }
     }
-  }, [selectedParking, selectedOption, duration, bookingStep]);
+  }, [selectedParking, selectedOption, duration, reserveDuration, activeTab]);
 
   const handleFindParking = () => {
     if (!location) {
@@ -213,7 +215,36 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     setBookingStep('payment');
   };
 
+  const decreaseAvailableSpots = () => {
+    // Decrease the available spots by 1
+    if (selectedParking && selectedOption) {
+      const updatedParkingSpots = nearbyParkingSpots.map(spot => {
+        if (spot.id === selectedParking.id) {
+          const updatedOptions = spot.options.map(opt => {
+            if (opt.id === selectedOption) {
+              return {
+                ...opt,
+                availableSpots: Math.max(0, opt.availableSpots - 1)
+              };
+            }
+            return opt;
+          });
+          
+          return {
+            ...spot,
+            availableSpots: Math.max(0, spot.availableSpots - 1),
+            options: updatedOptions
+          };
+        }
+        return spot;
+      });
+      
+      setNearbyParkingSpots(updatedParkingSpots);
+    }
+  };
+
   const handleConfirmBooking = () => {
+    decreaseAvailableSpots();
     setBookingStep('confirmation');
     toast({
       title: "Booking confirmed!",
@@ -436,8 +467,13 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               <div className="flex justify-between items-center text-xs">
                 <div className="flex items-center">
                   <Timer className="h-3 w-3 mr-1" />
-                  Duration: {duration} hours
+                  Duration: {activeTab === 'now' ? duration : reserveDuration} hours
                 </div>
+                {activeTab === 'later' && (
+                  <div className="text-amber-600">
+                    $5 reservation fee
+                  </div>
+                )}
               </div>
             </div>
             
@@ -513,7 +549,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               
               <div>
                 <div className="text-sm text-muted-foreground">Duration</div>
-                <div className="font-medium">{duration} hours</div>
+                <div className="font-medium">{activeTab === 'now' ? duration : reserveDuration} hours</div>
               </div>
               
               <div>
@@ -547,7 +583,15 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   return (
     <Card className="w-full shadow-lg border-none">
       <CardContent className="p-4">
-        <Tabs defaultValue="now" className="w-full">
+        <Tabs 
+          defaultValue="now" 
+          className="w-full" 
+          value={activeTab}
+          onValueChange={(value) => {
+            setActiveTab(value);
+            setBookingStep('search');
+          }}
+        >
           <TabsList className="w-full mb-4">
             <TabsTrigger value="now" className="flex-1">Park Now</TabsTrigger>
             <TabsTrigger value="later" className="flex-1">Reserve</TabsTrigger>
@@ -558,77 +602,81 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
           </TabsContent>
           
           <TabsContent value="later" className="mt-0">
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input 
-                    placeholder="Where are you looking for parking?" 
-                    className="pl-10"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="reserve-date">Date</Label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input 
-                        id="reserve-date"
-                        type="date" 
-                        className="pl-10"
-                        value={reserveDate}
-                        onChange={(e) => setReserveDate(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="reserve-time">Time</Label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input 
-                        id="reserve-time"
-                        type="time" 
-                        className="pl-10"
-                        value={reserveTime}
-                        onChange={(e) => setReserveTime(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <Label htmlFor="reserve-duration">Duration (hours)</Label>
+            {bookingStep === 'search' ? (
+              <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="relative">
-                    <Timer className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input 
-                      id="reserve-duration"
-                      type="number" 
-                      min="1"
-                      value={reserveDuration}
-                      onChange={(e) => setReserveDuration(parseInt(e.target.value))}
+                      placeholder="Where are you looking for parking?" 
                       className="pl-10"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
                     />
                   </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="reserve-date">Date</Label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                        <Input 
+                          id="reserve-date"
+                          type="date" 
+                          className="pl-10"
+                          value={reserveDate}
+                          onChange={(e) => setReserveDate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="reserve-time">Time</Label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                        <Input 
+                          id="reserve-time"
+                          type="time" 
+                          className="pl-10"
+                          value={reserveTime}
+                          onChange={(e) => setReserveTime(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="reserve-duration">Duration (hours)</Label>
+                    <div className="relative">
+                      <Timer className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input 
+                        id="reserve-duration"
+                        type="number" 
+                        min="1"
+                        value={reserveDuration}
+                        onChange={(e) => setReserveDuration(parseInt(e.target.value))}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded flex items-start">
+                    <svg className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
+                    </svg>
+                    Reservations include a $5 surcharge
+                  </div>
                 </div>
-                
-                <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded flex items-start">
-                  <svg className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
-                  </svg>
-                  Reservations include a 10% surcharge
-                </div>
+                <Button 
+                  className="w-full" 
+                  onClick={handleFindParking}
+                  disabled={!location || !reserveDate || !reserveTime || reserveDuration < 1}
+                >
+                  Find Parking Spots
+                </Button>
               </div>
-              <Button 
-                className="w-full" 
-                onClick={handleFindParking}
-                disabled={!location || !reserveDate || !reserveTime || reserveDuration < 1}
-              >
-                Find Parking Spots
-              </Button>
-            </div>
+            ) : (
+              renderBookingStep()
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>

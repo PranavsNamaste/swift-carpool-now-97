@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 // Sample parking history data
-const parkingHistory = [
+const initialParkingHistory = [
   {
     id: 1,
     location: "Downtown Plaza Parking",
@@ -90,6 +90,7 @@ const ParkingHistory = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeRating, setActiveRating] = useState<number | null>(null);
   const [ratingValue, setRatingValue] = useState(0);
+  const [parkingHistory, setParkingHistory] = useState(initialParkingHistory);
   const { toast } = useToast();
 
   const renderFeatureBadges = (features: { surveillance: boolean, evCharging: boolean, covered: boolean }) => {
@@ -123,10 +124,24 @@ const ParkingHistory = () => {
 
   const handleSubmitRating = () => {
     if (activeRating && ratingValue > 0) {
+      const updatedHistory = parkingHistory.map(parking => {
+        if (parking.id === activeRating) {
+          return {
+            ...parking,
+            rated: true,
+            rating: ratingValue
+          };
+        }
+        return parking;
+      });
+      
+      setParkingHistory(updatedHistory);
+      
       toast({
         title: "Rating submitted",
         description: "Thank you for rating your parking experience!"
       });
+      
       setActiveRating(null);
       setRatingValue(0);
     } else {
