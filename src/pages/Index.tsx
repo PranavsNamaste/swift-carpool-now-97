@@ -1,11 +1,54 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import Navbar from '@/components/Navbar';
+import MapComponent from '@/components/MapComponent';
+import RideBookingForm from '@/components/RideBookingForm';
+import RideHistory from '@/components/RideHistory';
 
 const Index = () => {
+  const isMobile = useIsMobile();
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  const handleMapClick = (location: { lat: number; lng: number }) => {
+    setSelectedLocation(location);
+    console.log('Map clicked at:', location);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      
+      <div className="flex-1 pt-16 relative overflow-hidden">
+        {/* Map Component takes full screen */}
+        <div className="absolute inset-0 z-0">
+          <MapComponent onMapClick={handleMapClick} />
+        </div>
+        
+        {/* Booking form overlay */}
+        <div className={`
+          relative z-10 h-full
+          ${isMobile ? 'px-4 pt-4 pb-6' : 'p-6'}
+          flex flex-col
+        `}>
+          <div className="flex items-center justify-between mb-4">
+            {!isMobile && <RideHistory />}
+            
+            <div className="ml-auto">
+              {/* We could add map controls here */}
+            </div>
+          </div>
+          
+          <div className="mt-auto">
+            <div className={`
+              max-w-md w-full mx-auto
+              ${isMobile ? 'rounded-t-2xl' : 'rounded-2xl'}
+              overflow-hidden shadow-xl bg-white
+            `}>
+              <RideBookingForm />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

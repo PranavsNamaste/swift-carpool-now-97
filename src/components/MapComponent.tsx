@@ -1,0 +1,99 @@
+
+import React, { useEffect, useRef, useState } from 'react';
+import { MapPin, Navigation, Car } from 'lucide-react';
+
+// This is a simplified map component without actual map integration
+// We'll create a simulated map UI for now
+const MapComponent = ({ onMapClick }: { onMapClick?: (location: { lat: number; lng: number }) => void }) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+
+  // Simulated car locations
+  const cars = [
+    { id: 1, lat: 40, lng: 20, type: 'Standard' },
+    { id: 2, lat: 25, lng: 15, type: 'Premium' },
+    { id: 3, lat: 60, lng: 35, type: 'Standard' },
+    { id: 4, lat: 70, lng: 50, type: 'XL' },
+    { id: 5, lat: 45, lng: 70, type: 'Standard' },
+  ];
+
+  useEffect(() => {
+    // Simulate map loading
+    const timer = setTimeout(() => {
+      setMapLoaded(true);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!mapRef.current || !onMapClick) return;
+    
+    const rect = mapRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    onMapClick({ lat: y, lng: x });
+  };
+
+  return (
+    <div 
+      ref={mapRef}
+      className="w-full h-full relative bg-[#f8f9fa] rounded-lg overflow-hidden"
+      onClick={handleMapClick}
+    >
+      {/* Simulated map grid */}
+      <div className="absolute inset-0 grid grid-cols-5 grid-rows-5">
+        {Array.from({ length: 25 }).map((_, i) => (
+          <div 
+            key={i} 
+            className="border border-gray-100 flex items-center justify-center text-gray-200 text-xs"
+          >
+            {i}
+          </div>
+        ))}
+      </div>
+      
+      {/* Map loading overlay */}
+      {!mapLoaded && (
+        <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-10">
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-4 text-sm text-gray-500">Loading map...</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Simulated cars on map */}
+      {mapLoaded && cars.map(car => (
+        <div 
+          key={car.id}
+          className="absolute w-6 h-6 -mt-3 -ml-3 pulse-dot"
+          style={{ top: `${car.lat}%`, left: `${car.lng}%` }}
+        >
+          <Car className="w-full h-full text-primary" />
+        </div>
+      ))}
+      
+      {/* User location marker (centered) */}
+      <div className="absolute top-1/2 left-1/2 -mt-4 -ml-3 z-10">
+        <div className="relative">
+          <MapPin className="w-6 h-6 text-blue-600" />
+          <div className="absolute bottom-0 left-1/2 w-2 h-2 bg-blue-600 rounded-full -ml-1"></div>
+        </div>
+      </div>
+      
+      {/* Navigation controls */}
+      <div className="absolute top-4 right-4 flex flex-col gap-2 bg-white rounded-md shadow-md">
+        <button className="p-2 hover:bg-gray-100 rounded-t-md">
+          <Navigation className="w-5 h-5" />
+        </button>
+        <div className="h-px w-full bg-gray-200"></div>
+        <button className="p-2 hover:bg-gray-100 rounded-b-md">+</button>
+        <button className="p-2 hover:bg-gray-100 rounded-b-md">−</button>
+      </div>
+    </div>
+  );
+};
+
+export default MapComponent;
