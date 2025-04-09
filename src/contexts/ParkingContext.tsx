@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 // Sample parking data for different locations
@@ -11,7 +10,9 @@ const parkingLocations = {
       distance: '0.3 miles',
       rating: 4.7,
       pricePerHour: 12.5,
-      availableSpots: 15,
+      pricePerHourBike: 7.5,
+      availableSpotsCar: 10,
+      availableSpotsMotorbike: 5,
       features: {
         surveillance: true,
         evCharging: true,
@@ -22,15 +23,19 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 12.5,
+          pricePerHourBike: 7.5,
           description: 'Standard parking spot',
-          availableSpots: 10
+          availableSpotsCar: 7,
+          availableSpotsMotorbike: 3
         },
         {
           id: 'covered',
           name: 'Covered',
           pricePerHour: 18.0,
+          pricePerHourBike: 10.8,
           description: 'Protected from weather',
-          availableSpots: 3,
+          availableSpotsCar: 2,
+          availableSpotsMotorbike: 1,
           features: {
             surveillance: true,
             evCharging: false,
@@ -41,8 +46,10 @@ const parkingLocations = {
           id: 'valet',
           name: 'Valet',
           pricePerHour: 25.0,
+          pricePerHourBike: 15.0,
           description: 'Premium service with attendant',
-          availableSpots: 2,
+          availableSpotsCar: 1,
+          availableSpotsMotorbike: 1,
           features: {
             surveillance: true,
             evCharging: true,
@@ -58,7 +65,9 @@ const parkingLocations = {
       distance: '0.8 miles',
       rating: 4.5,
       pricePerHour: 14.0,
-      availableSpots: 8,
+      pricePerHourBike: 8.4,
+      availableSpotsCar: 6,
+      availableSpotsMotorbike: 2,
       features: {
         surveillance: true,
         evCharging: false,
@@ -69,15 +78,19 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 14.0,
+          pricePerHourBike: 8.4,
           description: 'Standard parking spot',
-          availableSpots: 6
+          availableSpotsCar: 4,
+          availableSpotsMotorbike: 2
         },
         {
           id: 'covered',
           name: 'Covered',
           pricePerHour: 20.0,
+          pricePerHourBike: 12.0,
           description: 'Protected from weather',
-          availableSpots: 2,
+          availableSpotsCar: 2,
+          availableSpotsMotorbike: 0,
           features: {
             surveillance: true,
             evCharging: false,
@@ -93,7 +106,9 @@ const parkingLocations = {
       distance: '1.2 miles',
       rating: 4.8,
       pricePerHour: 15.0,
-      availableSpots: 12,
+      pricePerHourBike: 9.0,
+      availableSpotsCar: 9,
+      availableSpotsMotorbike: 3,
       features: {
         surveillance: true,
         evCharging: true,
@@ -104,15 +119,19 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 15.0,
+          pricePerHourBike: 9.0,
           description: 'Standard parking spot',
-          availableSpots: 8
+          availableSpotsCar: 6,
+          availableSpotsMotorbike: 2
         },
         {
           id: 'valet',
           name: 'Valet',
           pricePerHour: 26.0,
+          pricePerHourBike: 15.6,
           description: 'Premium service with attendant',
-          availableSpots: 4,
+          availableSpotsCar: 3,
+          availableSpotsMotorbike: 1,
           features: {
             surveillance: true,
             evCharging: true,
@@ -130,7 +149,9 @@ const parkingLocations = {
       distance: '0.4 miles',
       rating: 4.6,
       pricePerHour: 11.0,
-      availableSpots: 20,
+      pricePerHourBike: 6.6,
+      availableSpotsCar: 15,
+      availableSpotsMotorbike: 5,
       features: {
         surveillance: true,
         evCharging: true,
@@ -141,15 +162,19 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 11.0,
+          pricePerHourBike: 6.6,
           description: 'Standard parking spot',
-          availableSpots: 15
+          availableSpotsCar: 12,
+          availableSpotsMotorbike: 3
         },
         {
           id: 'covered',
           name: 'Covered',
           pricePerHour: 16.0,
+          pricePerHourBike: 9.6,
           description: 'Protected from weather',
-          availableSpots: 5,
+          availableSpotsCar: 3,
+          availableSpotsMotorbike: 2,
           features: {
             surveillance: true,
             evCharging: true,
@@ -165,7 +190,9 @@ const parkingLocations = {
       distance: '0.7 miles',
       rating: 4.3,
       pricePerHour: 9.5,
-      availableSpots: 7,
+      pricePerHourBike: 5.7,
+      availableSpotsCar: 5,
+      availableSpotsMotorbike: 2,
       features: {
         surveillance: true,
         evCharging: false,
@@ -176,8 +203,10 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 9.5,
+          pricePerHourBike: 5.7,
           description: 'Standard parking spot',
-          availableSpots: 7
+          availableSpotsCar: 5,
+          availableSpotsMotorbike: 2
         }
       ]
     }
@@ -190,7 +219,9 @@ const parkingLocations = {
       distance: '0.2 miles',
       rating: 4.4,
       pricePerHour: 10.0,
-      availableSpots: 10,
+      pricePerHourBike: 6.0,
+      availableSpotsCar: 8,
+      availableSpotsMotorbike: 2,
       features: {
         surveillance: true,
         evCharging: false,
@@ -201,15 +232,19 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 10.0,
+          pricePerHourBike: 6.0,
           description: 'Standard parking spot',
-          availableSpots: 7
+          availableSpotsCar: 6,
+          availableSpotsMotorbike: 1
         },
         {
           id: 'valet',
           name: 'Valet',
           pricePerHour: 18.0,
+          pricePerHourBike: 10.8,
           description: 'Premium service with attendant',
-          availableSpots: 3,
+          availableSpotsCar: 2,
+          availableSpotsMotorbike: 1,
           features: {
             surveillance: true,
             evCharging: false,
@@ -225,7 +260,9 @@ const parkingLocations = {
       distance: '1.5 miles',
       rating: 4.9,
       pricePerHour: 18.0,
-      availableSpots: 5,
+      pricePerHourBike: 10.8,
+      availableSpotsCar: 3,
+      availableSpotsMotorbike: 2,
       features: {
         surveillance: true,
         evCharging: true,
@@ -236,8 +273,10 @@ const parkingLocations = {
           id: 'covered',
           name: 'Covered',
           pricePerHour: 18.0,
+          pricePerHourBike: 10.8,
           description: 'Protected from weather',
-          availableSpots: 3,
+          availableSpotsCar: 1,
+          availableSpotsMotorbike: 2,
           features: {
             surveillance: true,
             evCharging: true,
@@ -248,8 +287,10 @@ const parkingLocations = {
           id: 'valet',
           name: 'Valet',
           pricePerHour: 30.0,
+          pricePerHourBike: 18.0,
           description: 'Premium service with attendant',
-          availableSpots: 2,
+          availableSpotsCar: 2,
+          availableSpotsMotorbike: 0,
           features: {
             surveillance: true,
             evCharging: true,
@@ -267,7 +308,9 @@ const parkingLocations = {
       distance: '0.3 miles',
       rating: 4.5,
       pricePerHour: 15.0,
-      availableSpots: 8,
+      pricePerHourBike: 9.0,
+      availableSpotsCar: 6,
+      availableSpotsMotorbike: 2,
       features: {
         surveillance: true,
         evCharging: true,
@@ -278,15 +321,19 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 15.0,
+          pricePerHourBike: 9.0,
           description: 'Standard parking spot',
-          availableSpots: 5
+          availableSpotsCar: 4,
+          availableSpotsMotorbike: 1
         },
         {
           id: 'covered',
           name: 'Covered',
           pricePerHour: 22.0,
+          pricePerHourBike: 13.2,
           description: 'Protected from weather',
-          availableSpots: 3,
+          availableSpotsCar: 2,
+          availableSpotsMotorbike: 1,
           features: {
             surveillance: true,
             evCharging: true,
@@ -304,7 +351,9 @@ const parkingLocations = {
       distance: '0.5 miles',
       rating: 4.4,
       pricePerHour: 12.0,
-      availableSpots: 6,
+      pricePerHourBike: 7.2,
+      availableSpotsCar: 4,
+      availableSpotsMotorbike: 2,
       features: {
         surveillance: true,
         evCharging: false,
@@ -315,15 +364,19 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 12.0,
+          pricePerHourBike: 7.2,
           description: 'Standard parking spot',
-          availableSpots: 4
+          availableSpotsCar: 3,
+          availableSpotsMotorbike: 1
         },
         {
           id: 'covered',
           name: 'Covered',
           pricePerHour: 18.0,
+          pricePerHourBike: 10.8,
           description: 'Protected from weather',
-          availableSpots: 2,
+          availableSpotsCar: 1,
+          availableSpotsMotorbike: 1,
           features: {
             surveillance: true,
             evCharging: false,
@@ -341,7 +394,9 @@ const parkingLocations = {
       distance: '0.2 miles',
       rating: 4.6,
       pricePerHour: 14.0,
-      availableSpots: 15,
+      pricePerHourBike: 8.4,
+      availableSpotsCar: 12,
+      availableSpotsMotorbike: 3,
       features: {
         surveillance: true,
         evCharging: false,
@@ -352,15 +407,19 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 14.0,
+          pricePerHourBike: 8.4,
           description: 'Standard parking spot',
-          availableSpots: 10
+          availableSpotsCar: 8,
+          availableSpotsMotorbike: 2
         },
         {
           id: 'valet',
           name: 'Valet',
           pricePerHour: 24.0,
+          pricePerHourBike: 14.4,
           description: 'Premium service with attendant',
-          availableSpots: 5,
+          availableSpotsCar: 4,
+          availableSpotsMotorbike: 1,
           features: {
             surveillance: true,
             evCharging: false,
@@ -378,7 +437,9 @@ const parkingLocations = {
       distance: '0.4 miles',
       rating: 4.3,
       pricePerHour: 10.0,
-      availableSpots: 12,
+      pricePerHourBike: 6.0,
+      availableSpotsCar: 9,
+      availableSpotsMotorbike: 3,
       features: {
         surveillance: true,
         evCharging: true,
@@ -389,8 +450,10 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 10.0,
+          pricePerHourBike: 6.0,
           description: 'Standard parking spot',
-          availableSpots: 12
+          availableSpotsCar: 9,
+          availableSpotsMotorbike: 3
         }
       ]
     }
@@ -403,7 +466,9 @@ const parkingLocations = {
       distance: '0.3 miles',
       rating: 4.2,
       pricePerHour: 8.0,
-      availableSpots: 18,
+      pricePerHourBike: 4.8,
+      availableSpotsCar: 15,
+      availableSpotsMotorbike: 3,
       features: {
         surveillance: true,
         evCharging: false,
@@ -414,15 +479,19 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 8.0,
+          pricePerHourBike: 4.8,
           description: 'Standard parking spot',
-          availableSpots: 15
+          availableSpotsCar: 12,
+          availableSpotsMotorbike: 3
         },
         {
           id: 'covered',
           name: 'Covered',
           pricePerHour: 12.0,
+          pricePerHourBike: 7.2,
           description: 'Protected from weather',
-          availableSpots: 3,
+          availableSpotsCar: 3,
+          availableSpotsMotorbike: 0,
           features: {
             surveillance: true,
             evCharging: false,
@@ -440,7 +509,9 @@ const parkingLocations = {
       distance: '0.6 miles',
       rating: 4.1,
       pricePerHour: 9.0,
-      availableSpots: 20,
+      pricePerHourBike: 5.4,
+      availableSpotsCar: 17,
+      availableSpotsMotorbike: 3,
       features: {
         surveillance: false,
         evCharging: true,
@@ -451,8 +522,10 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 9.0,
+          pricePerHourBike: 5.4,
           description: 'Standard parking spot',
-          availableSpots: 20
+          availableSpotsCar: 17,
+          availableSpotsMotorbike: 3
         }
       ]
     }
@@ -465,7 +538,9 @@ const parkingLocations = {
       distance: '0.5 miles',
       rating: 4.5,
       pricePerHour: 13.0,
-      availableSpots: 10,
+      pricePerHourBike: 7.8,
+      availableSpotsCar: 8,
+      availableSpotsMotorbike: 2,
       features: {
         surveillance: true,
         evCharging: true,
@@ -476,15 +551,19 @@ const parkingLocations = {
           id: 'regular',
           name: 'Regular',
           pricePerHour: 13.0,
+          pricePerHourBike: 7.8,
           description: 'Standard parking spot',
-          availableSpots: 7
+          availableSpotsCar: 5,
+          availableSpotsMotorbike: 2
         },
         {
           id: 'covered',
           name: 'Covered',
           pricePerHour: 19.0,
+          pricePerHourBike: 11.4,
           description: 'Protected from weather',
-          availableSpots: 3,
+          availableSpotsCar: 3,
+          availableSpotsMotorbike: 0,
           features: {
             surveillance: true,
             evCharging: true,
@@ -495,6 +574,95 @@ const parkingLocations = {
     }
   ]
 };
+
+// Add more cities
+parkingLocations['San Diego'] = [
+  {
+    id: 1101,
+    name: 'Balboa Park Parking',
+    address: '1549 El Prado, San Diego',
+    distance: '0.5 miles',
+    rating: 4.3,
+    pricePerHour: 8.0,
+    pricePerHourBike: 4.8,
+    availableSpotsCar: 14,
+    availableSpotsMotorbike: 8,
+    features: {
+      surveillance: true,
+      evCharging: true,
+      covered: false
+    },
+    options: [
+      {
+        id: 'regular',
+        name: 'Regular',
+        pricePerHour: 8.0,
+        pricePerHourBike: 4.8,
+        description: 'Standard parking spot',
+        availableSpotsCar: 10,
+        availableSpotsMotorbike: 6
+      },
+      {
+        id: 'covered',
+        name: 'Covered',
+        pricePerHour: 12.0,
+        pricePerHourBike: 7.2,
+        description: 'Protected from weather',
+        availableSpotsCar: 4,
+        availableSpotsMotorbike: 2,
+        features: {
+          surveillance: true,
+          evCharging: true,
+          covered: true
+        }
+      }
+    ]
+  }
+];
+
+parkingLocations['Atlanta'] = [
+  {
+    id: 1201,
+    name: 'Piedmont Park Garage',
+    address: '400 Park Dr NE, Atlanta',
+    distance: '0.3 miles',
+    rating: 4.2,
+    pricePerHour: 7.0,
+    pricePerHourBike: 4.2,
+    availableSpotsCar: 12,
+    availableSpotsMotorbike: 6,
+    features: {
+      surveillance: true,
+      evCharging: false,
+      covered: true
+    },
+    options: [
+      {
+        id: 'regular',
+        name: 'Regular',
+        pricePerHour: 7.0,
+        pricePerHourBike: 4.2,
+        description: 'Standard parking spot',
+        availableSpotsCar: 8,
+        availableSpotsMotorbike: 4
+      },
+      {
+        id: 'valet',
+        name: 'Valet',
+        pricePerHour: 15.0,
+        pricePerHourBike: 9.0,
+        description: 'Premium service with attendant',
+        availableSpotsCar: 4,
+        availableSpotsMotorbike: 2,
+        features: {
+          surveillance: true,
+          evCharging: false,
+          covered: true
+        }
+      }
+    ]
+  }
+];
 
 interface ParkingContextType {
   currentLocation: string;
@@ -507,6 +675,7 @@ interface ParkingContextType {
   removeParking: (id: number) => void;
   isSaved: (id: number) => boolean;
   addBooking: (booking: any) => void;
+  isValidLocation: (location: string) => boolean;
 }
 
 const ParkingContext = createContext<ParkingContextType>({
@@ -519,7 +688,8 @@ const ParkingContext = createContext<ParkingContextType>({
   saveParking: () => {},
   removeParking: () => {},
   isSaved: () => false,
-  addBooking: () => {}
+  addBooking: () => {},
+  isValidLocation: () => true
 });
 
 export const useParking = () => useContext(ParkingContext);
@@ -528,6 +698,73 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [currentLocation, setCurrentLocation] = useState<string>('New York');
   const [savedParkings, setSavedParkings] = useState<any[]>([]);
   const [bookingHistory, setBookingHistory] = useState<any[]>([]);
+
+  // Sample completed bookings for demonstration
+  const sampleCompletedBookings = [
+    {
+      id: 'ORD-1234567',
+      orderId: 'ORD-1234567',
+      parkingId: 101,
+      parkingName: 'Central Park Garage',
+      parkingAddress: '123 Central Park West, New York',
+      parkingType: 'Regular',
+      vehicleType: 'car',
+      vehicleNumber: 'NYC-4321',
+      date: '2025-03-25',
+      time: '10:30 AM',
+      duration: 2,
+      totalPrice: 25.0,
+      status: 'completed',
+      timestamp: new Date('2025-03-25T10:30:00').getTime(),
+      features: {
+        surveillance: true,
+        evCharging: true,
+        covered: true
+      }
+    },
+    {
+      id: 'ORD-2345678',
+      orderId: 'ORD-2345678',
+      parkingId: 201,
+      parkingName: 'Millennium Park Garage',
+      parkingAddress: '123 Michigan Ave, Chicago',
+      parkingType: 'Covered',
+      vehicleType: 'bike',
+      vehicleNumber: 'CHI-7890',
+      date: '2025-03-28',
+      time: '2:15 PM',
+      duration: 3,
+      totalPrice: 21.6,
+      status: 'completed',
+      timestamp: new Date('2025-03-28T14:15:00').getTime(),
+      features: {
+        surveillance: true,
+        evCharging: true,
+        covered: true
+      }
+    },
+    {
+      id: 'ORD-3456789',
+      orderId: 'ORD-3456789',
+      parkingId: 301,
+      parkingName: 'Hollywood Boulevard Parking',
+      parkingAddress: '123 Hollywood Blvd, Los Angeles',
+      parkingType: 'Valet',
+      vehicleType: 'car',
+      vehicleNumber: 'LA-9876',
+      date: '2025-04-01',
+      time: '9:00 AM',
+      duration: 4,
+      totalPrice: 72.0,
+      status: 'completed',
+      timestamp: new Date('2025-04-01T09:00:00').getTime(),
+      features: {
+        surveillance: true,
+        evCharging: false,
+        covered: false
+      }
+    }
+  ];
 
   // Load saved parkings from localStorage on mount
   useEffect(() => {
@@ -543,10 +780,21 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const storedBookings = localStorage.getItem('bookingHistory');
     if (storedBookings) {
       try {
-        setBookingHistory(JSON.parse(storedBookings));
+        const parsedBookings = JSON.parse(storedBookings);
+        // Add the sample completed bookings only if they don't already exist
+        if (!parsedBookings.some((b: any) => b.id === sampleCompletedBookings[0].id)) {
+          setBookingHistory([...parsedBookings, ...sampleCompletedBookings]);
+        } else {
+          setBookingHistory(parsedBookings);
+        }
       } catch (error) {
         console.error('Error parsing booking history:', error);
+        // If there's an error, just set the sample completed bookings
+        setBookingHistory(sampleCompletedBookings);
       }
+    } else {
+      // If no stored bookings, initialize with the sample completed bookings
+      setBookingHistory(sampleCompletedBookings);
     }
   }, []);
 
@@ -562,6 +810,12 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const getFilteredParkings = () => {
     return parkingLocations[currentLocation as keyof typeof parkingLocations] || [];
+  };
+
+  const isValidLocation = (location: string) => {
+    return Object.keys(parkingLocations).some(
+      city => city.toLowerCase() === location.toLowerCase()
+    );
   };
 
   const saveParking = (parking: any) => {
@@ -593,7 +847,8 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       saveParking,
       removeParking,
       isSaved,
-      addBooking
+      addBooking,
+      isValidLocation
     }}>
       {children}
     </ParkingContext.Provider>

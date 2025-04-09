@@ -1,20 +1,27 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import Navbar from '@/components/Navbar';
 import MapComponent from '@/components/MapComponent';
 import ParkingBookingForm from '@/components/ParkingBookingForm';
 import ParkingHistory from '@/components/ParkingHistory';
 import SavedParkings from '@/components/SavedParkings';
+import { useParking } from '@/contexts/ParkingContext';
 
 const Index = () => {
   const isMobile = useIsMobile();
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const { currentLocation } = useParking();
 
   const handleMapClick = (location: { lat: number; lng: number }) => {
     setSelectedLocation(location);
     console.log('Map clicked at:', location);
   };
+
+  useEffect(() => {
+    // This would normally trigger a map update with the new location
+    console.log('Location changed to:', currentLocation);
+  }, [currentLocation]);
 
   return (
     <div className="min-h-screen flex flex-col">

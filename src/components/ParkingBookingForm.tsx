@@ -13,7 +13,8 @@ import {
   Timer,
   Heart,
   Search,
-  Bike
+  Bike,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,7 +45,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useParking } from '@/contexts/ParkingContext';
 import { useUser } from '@/contexts/UserContext';
-import VehicleTypeSelector from './VehicleTypeSelector';
+import VehicleTypeSelector, { VehicleType } from './VehicleTypeSelector';
 import ParkingReceipt from './ParkingReceipt';
 import SignInForm from './SignInForm';
 import {
@@ -53,9 +54,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { generateOrderId, formatDate, formatTime } from '@/utils/helpers';
+import { Separator } from './ui/separator';
 
 type ParkingType = 'regular' | 'covered' | 'valet';
-type VehicleType = 'car' | 'bike';
 
 const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: number; lng: number } | null }) => {
   const [location, setLocation] = useState('');
@@ -74,6 +75,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   const [showSignInDialog, setShowSignInDialog] = useState(false);
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [currentBooking, setCurrentBooking] = useState<any>(null);
+  const [locationError, setLocationError] = useState('');
 
   // Use the parking context
   const { 
@@ -84,7 +86,8 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     saveParking,
     removeParking,
     isSaved,
-    addBooking
+    addBooking,
+    isValidLocation
   } = useParking();
 
   // Use the user context
@@ -103,14 +106,14 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     if (selectedParking && selectedOption) {
       const option = selectedParking.options.find((opt: any) => opt.id === selectedOption);
       if (option) {
-        // Apply discount for bikes
-        const basePrice = option.pricePerHour * (activeTab === 'now' ? duration : reserveDuration);
-        const discount = vehicleType === 'bike' ? 0.4 : 0; // 40% off for bikes
-        const discountedPrice = basePrice * (1 - discount);
+        // Get base price based on vehicle type
+        const basePrice = vehicleType === 'car' 
+          ? option.pricePerHour * (activeTab === 'now' ? duration : reserveDuration)
+          : option.pricePerHourBike * (activeTab === 'now' ? duration : reserveDuration);
         
         // Add a $5 surcharge for reservations
         const surcharge = activeTab === 'later' ? 5 : 0;
-        setTotalPrice(discountedPrice + surcharge);
+        setTotalPrice(basePrice + surcharge);
       }
     }
   }, [selectedParking, selectedOption, duration, reserveDuration, activeTab, vehicleType]);
@@ -124,10 +127,18 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
       return;
     }
     
+    // Check if the location is valid
+    if (location !== 'Current Location' && !isValidLocation(location)) {
+      setLocationError("Invalid city or we're not available in your region");
+      return;
+    }
+    
+    setLocationError('');
+    
     // Set the current location based on input
     const locationsArray = Object.keys(locationParkings);
     const matchedLocation = locationsArray.find(loc => 
-      location.toLowerCase().includes(loc.toLowerCase())
+      location.toLowerCase() === loc.toLowerCase()
     ) || locationsArray[0];
     
     setCurrentLocation(matchedLocation);
@@ -295,12 +306,34 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               className="text-xs cursor-pointer hover:bg-primary/10"
               onClick={() => {
                 setLocation(city);
+                setLocationError('');
               }}
             >
               {city}
             </Badge>
           ))}
         </div>
+      </div>
+    );
+  };
+
+  const renderPriceDisplay = (option: any) => {
+    return (
+      <div className="text-right">
+        <div className="font-medium">
+          <div className="flex items-center justify-end gap-1">
+            <Car className="h-3.5 w-3.5" />
+            <span>${option.pricePerHour.toFixed(2)}/hr</span>
+          </div>
+          <div className="flex items-center justify-end gap-1 text-green-600">
+            <Bike className="h-3.5 w-3.5" />
+            <span className="line-through text-gray-400 mr-1">${option.pricePerHour.toFixed(2)}/hr</span>
+            ${option.pricePerHourBike.toFixed(2)}/hr
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Car: {option.availableSpotsCar} | Bike: {option.availableSpotsMotorbike}
+        </p>
       </div>
     );
   };
@@ -316,10 +349,19 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                 <Input
                   placeholder="Where are you looking for parking?"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e) => {
+                    setLocation(e.target.value);
+                    setLocationError('');
+                  }}
                   className="pl-10"
                 />
               </div>
+              {locationError && (
+                <div className="text-destructive text-sm flex items-center mt-1">
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  {locationError}
+                </div>
+              )}
               {renderAvailableLocations()}
               <div>
                 <Label htmlFor="duration">Duration (hours)</Label>
@@ -335,11 +377,6 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   />
                 </div>
               </div>
-              
-              <VehicleTypeSelector 
-                selectedType={vehicleType} 
-                onChange={setVehicleType} 
-              />
             </div>
             <Button className="w-full" onClick={handleFindParking}>
               Find Parking
@@ -360,6 +397,11 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               </div>
             </div>
             
+            <VehicleTypeSelector 
+              selectedType={vehicleType} 
+              onChange={setVehicleType} 
+            />
+            
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {nearbyParkingSpots.map((spot) => (
                 <div 
@@ -375,21 +417,38 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   {renderFeatureBadges(spot.features)}
                   <div className="flex justify-between items-center mt-2">
                     <div className="flex items-center space-x-2">
-                      <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">
-                        {spot.availableSpots} spots
+                      <div className="flex items-center gap-2">
+                        <div className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
+                          <Car className="h-3 w-3 mr-1" />
+                          {spot.availableSpotsCar}
+                        </div>
+                        <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
+                          <Bike className="h-3 w-3 mr-1" />
+                          {spot.availableSpotsMotorbike}
+                        </div>
                       </div>
                       <div className="text-yellow-500 flex items-center text-xs">
                         ★ {spot.rating}
                       </div>
                     </div>
-                    <div className="font-medium">${spot.pricePerHour.toFixed(2)}/hr</div>
+                    <div className="flex flex-col items-end mr-6">
+                      <div className="flex items-center gap-1">
+                        <Car className="h-3.5 w-3.5" />
+                        <span className="font-medium">${spot.pricePerHour.toFixed(2)}/hr</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-green-600 text-xs">
+                        <Bike className="h-3 w-3" />
+                        <span className="line-through text-gray-400 mr-1">${spot.pricePerHour.toFixed(2)}/hr</span>
+                        ${spot.pricePerHourBike.toFixed(2)}/hr
+                      </div>
+                    </div>
                   </div>
                   
-                  {/* Save parking button - moved to the bottom right area */}
+                  {/* Save parking button */}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute bottom-2 right-2 h-8 w-8"
+                    className="absolute top-2 right-2 h-8 w-8"
                     onClick={(e) => handleToggleSaveParking(spot, e)}
                   >
                     <Heart className={`h-5 w-5 ${isSaved(spot.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
@@ -418,8 +477,15 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               <div className="text-muted-foreground mb-1">{selectedParking?.address}</div>
               {selectedParking && renderFeatureBadges(selectedParking.features)}
               <div className="flex items-center space-x-2 mt-2">
-                <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">
-                  {selectedParking?.availableSpots} spots
+                <div className="flex items-center gap-2">
+                  <div className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
+                    <Car className="h-3 w-3 mr-1" />
+                    {selectedParking?.availableSpotsCar}
+                  </div>
+                  <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
+                    <Bike className="h-3 w-3 mr-1" />
+                    {selectedParking?.availableSpotsMotorbike}
+                  </div>
                 </div>
                 <div className="text-yellow-500 flex items-center text-xs">
                   ★ {selectedParking?.rating}
@@ -492,21 +558,25 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                         {option.features && renderFeatureBadges(option.features)}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">${option.pricePerHour.toFixed(2)}/hr</p>
-                      <p className="text-xs text-muted-foreground">{option.availableSpots} available</p>
-                    </div>
+                    {renderPriceDisplay(option)}
                   </div>
                 ))}
               </div>
             </div>
             
-            {vehicleType === 'bike' && (
-              <div className="p-2 bg-green-50 rounded-md text-sm text-green-600 flex items-center">
-                <Bike className="h-4 w-4 mr-2" />
-                40% discount applied for bikes!
-              </div>
-            )}
+            <div className="p-2 bg-green-50 rounded-md text-sm text-green-600 flex items-center">
+              {vehicleType === 'bike' ? (
+                <>
+                  <Bike className="h-4 w-4 mr-2" />
+                  40% discount applied for bikes! Save on your parking.
+                </>
+              ) : (
+                <>
+                  <Car className="h-4 w-4 mr-2" />
+                  Switch to bike for a 40% discount on parking!
+                </>
+              )}
+            </div>
             
             <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg">
               <div className="text-sm font-medium">Total Price</div>
@@ -682,9 +752,18 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                         placeholder="Where are you looking for parking?" 
                         className="pl-10"
                         value={location}
-                        onChange={(e) => setLocation(e.target.value)}
+                        onChange={(e) => {
+                          setLocation(e.target.value);
+                          setLocationError('');
+                        }}
                       />
                     </div>
+                    {locationError && (
+                      <div className="text-destructive text-sm flex items-center mt-1">
+                        <AlertTriangle className="h-4 w-4 mr-1" />
+                        {locationError}
+                      </div>
+                    )}
                     {renderAvailableLocations()}
                     
                     <div className="grid grid-cols-2 gap-3">
@@ -730,11 +809,6 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                         />
                       </div>
                     </div>
-                    
-                    <VehicleTypeSelector 
-                      selectedType={vehicleType} 
-                      onChange={setVehicleType} 
-                    />
                     
                     <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded flex items-start">
                       <svg className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">

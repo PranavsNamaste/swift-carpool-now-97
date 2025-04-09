@@ -3,16 +3,17 @@ import React from 'react';
 import { Car, Bike } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-type VehicleType = 'car' | 'bike';
+export type VehicleType = 'car' | 'bike';
 
 interface VehicleTypeSelectorProps {
   selectedType: VehicleType;
   onChange: (type: VehicleType) => void;
+  className?: string;
 }
 
-const VehicleTypeSelector = ({ selectedType, onChange }: VehicleTypeSelectorProps) => {
+const VehicleTypeSelector = ({ selectedType, onChange, className = '' }: VehicleTypeSelectorProps) => {
   return (
-    <div className="flex gap-2 w-full mb-3">
+    <div className={`flex gap-2 w-full mb-3 ${className}`}>
       <Button
         type="button"
         variant={selectedType === 'car' ? 'default' : 'outline'}

@@ -183,6 +183,9 @@ const ParkingHistory = () => {
                         <span>
                           {booking.vehicleType.charAt(0).toUpperCase() + booking.vehicleType.slice(1)}: {booking.vehicleNumber}
                         </span>
+                        {booking.vehicleType === 'bike' && status !== 'completed' && (
+                          <span className="text-green-600 text-xs">40% discount applied</span>
+                        )}
                       </div>
                       
                       {booking.features && renderFeatureBadges(booking.features)}
