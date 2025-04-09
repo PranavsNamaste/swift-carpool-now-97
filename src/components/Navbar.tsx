@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Menu, User, Clock, Star } from 'lucide-react';
+import { Menu, User, Clock, Star, CircleParking } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -18,7 +18,7 @@ const Navbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm px-4 py-3 flex items-center justify-between">
       <div className="flex items-center">
-        <h1 className="text-xl font-bold text-primary mr-2">RideHub</h1>
+        <h1 className="text-xl font-bold text-primary mr-2">ParkHub</h1>
         <span className="text-xs text-muted-foreground">beta</span>
       </div>
 
@@ -27,11 +27,11 @@ const Navbar = () => {
           <div className="flex gap-4">
             <Button variant="ghost" size="sm" className="text-sm">
               <Clock className="h-4 w-4 mr-2" />
-              Ride History
+              Parking History
             </Button>
             <Button variant="ghost" size="sm" className="text-sm">
               <Star className="h-4 w-4 mr-2" />
-              Rate Driver
+              Rate Parking
             </Button>
           </div>
         )}
@@ -55,13 +55,13 @@ const Navbar = () => {
                 </Avatar>
                 <div>
                   <p className="font-medium">John Doe</p>
-                  <p className="text-xs text-muted-foreground">4.9 ★ | 24 rides</p>
+                  <p className="text-xs text-muted-foreground">4.9 ★ | 24 bookings</p>
                 </div>
               </div>
               
               <Button variant="ghost" className="justify-start">
                 <Clock className="h-4 w-4 mr-3" />
-                Your Rides
+                Your Parkings
               </Button>
               <Button variant="ghost" className="justify-start">
                 <User className="h-4 w-4 mr-3" />
@@ -69,7 +69,11 @@ const Navbar = () => {
               </Button>
               <Button variant="ghost" className="justify-start">
                 <Star className="h-4 w-4 mr-3" />
-                Rate Experience
+                Rate Parking
+              </Button>
+              <Button variant="ghost" className="justify-start">
+                <CircleParking className="h-4 w-4 mr-3" />
+                Saved Parkings
               </Button>
               <Button variant="ghost" className="justify-start text-red-500">
                 Sign Out

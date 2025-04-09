@@ -4,7 +4,10 @@ import {
   CircleParking, 
   Clock, 
   X,
-  ChevronDown
+  ChevronDown,
+  Shield,
+  Zap,
+  Star
 } from 'lucide-react';
 import {
   Sheet,
@@ -22,6 +25,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 // Sample parking history data
 const parkingHistory = [
@@ -34,7 +39,14 @@ const parkingHistory = [
     endTime: "11:30 AM",
     duration: "2 hours",
     cost: 8.50,
-    parkingType: "Covered"
+    parkingType: "Covered",
+    rated: true,
+    rating: 4,
+    features: {
+      surveillance: true,
+      evCharging: false,
+      covered: true
+    }
   },
   {
     id: 2,
@@ -45,7 +57,14 @@ const parkingHistory = [
     endTime: "11:45 PM",
     duration: "17.5 hours",
     cost: 35.00,
-    parkingType: "Regular"
+    parkingType: "Regular",
+    rated: false,
+    rating: 0,
+    features: {
+      surveillance: true,
+      evCharging: true,
+      covered: false
+    }
   },
   {
     id: 3,
@@ -56,12 +75,67 @@ const parkingHistory = [
     endTime: "05:45 PM",
     duration: "3.75 hours",
     cost: 11.25,
-    parkingType: "Valet"
+    parkingType: "Valet",
+    rated: false,
+    rating: 0,
+    features: {
+      surveillance: true,
+      evCharging: false,
+      covered: true
+    }
   }
 ];
 
 const ParkingHistory = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeRating, setActiveRating] = useState<number | null>(null);
+  const [ratingValue, setRatingValue] = useState(0);
+  const { toast } = useToast();
+
+  const renderFeatureBadges = (features: { surveillance: boolean, evCharging: boolean, covered: boolean }) => {
+    return (
+      <div className="flex flex-wrap gap-1 mt-1">
+        {features.surveillance && (
+          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-blue-50">
+            <Shield className="h-3 w-3" />
+            24/7
+          </Badge>
+        )}
+        {features.evCharging && (
+          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-green-50">
+            <Zap className="h-3 w-3" />
+            EV
+          </Badge>
+        )}
+        {features.covered && (
+          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-purple-50">
+            <CircleParking className="h-3 w-3" />
+            Covered
+          </Badge>
+        )}
+      </div>
+    );
+  };
+
+  const handleRateParking = (id: number) => {
+    setActiveRating(id);
+  };
+
+  const handleSubmitRating = () => {
+    if (activeRating && ratingValue > 0) {
+      toast({
+        title: "Rating submitted",
+        description: "Thank you for rating your parking experience!"
+      });
+      setActiveRating(null);
+      setRatingValue(0);
+    } else {
+      toast({
+        title: "Please select a rating",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -121,12 +195,71 @@ const ParkingHistory = () => {
                       <div>{parking.parkingType}</div>
                     </div>
                     <div className="grid grid-cols-2 gap-1">
+                      <div className="text-muted-foreground">Features:</div>
+                      <div>{renderFeatureBadges(parking.features)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
                       <div className="text-muted-foreground">Total Cost:</div>
                       <div className="font-medium">${parking.cost.toFixed(2)}</div>
                     </div>
                     
                     <div className="pt-2">
-                      <Button variant="outline" size="sm" className="w-full">Book Again</Button>
+                      {parking.rated ? (
+                        <div className="text-sm flex items-center justify-center text-amber-500 bg-amber-50 py-2 rounded">
+                          <Star className="h-4 w-4 mr-1 fill-amber-500" />
+                          Rated: {parking.rating}/5
+                        </div>
+                      ) : activeRating === parking.id ? (
+                        <div className="space-y-2">
+                          <div className="flex justify-center">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setRatingValue(star)}
+                                className="p-1"
+                              >
+                                <Star
+                                  className={`h-6 w-6 ${
+                                    ratingValue >= star
+                                      ? "text-yellow-400 fill-yellow-400"
+                                      : "text-gray-300"
+                                  }`}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={() => setActiveRating(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={handleSubmitRating}
+                            >
+                              Submit
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" className="flex-1">Book Again</Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={() => handleRateParking(parking.id)}
+                          >
+                            <Star className="h-4 w-4 mr-1" /> Rate
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </AccordionContent>

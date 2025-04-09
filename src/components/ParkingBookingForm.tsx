@@ -8,7 +8,9 @@ import {
   CircleParking,
   Car,
   CreditCard,
-  Banknote
+  Shield,
+  Zap,
+  Timer
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +23,22 @@ import {
 } from '@/components/ui/tabs';
 import { useToast } from "@/hooks/use-toast";
 import { Label } from '@/components/ui/label';
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 type ParkingType = 'regular' | 'covered' | 'valet';
 
@@ -32,6 +49,11 @@ interface ParkingOption {
   pricePerHour: number;
   availableSpots: number;
   icon: JSX.Element;
+  features?: {
+    surveillance: boolean;
+    evCharging: boolean;
+    covered: boolean;
+  };
 }
 
 interface ParkingSpot {
@@ -42,6 +64,11 @@ interface ParkingSpot {
   rating: number;
   pricePerHour: number;
   availableSpots: number;
+  features: {
+    surveillance: boolean;
+    evCharging: boolean;
+    covered: boolean;
+  };
   options: ParkingOption[];
 }
 
@@ -52,7 +79,12 @@ const parkingOptions: ParkingOption[] = [
     description: 'Standard outdoor parking spot',
     pricePerHour: 2.50,
     availableSpots: 15,
-    icon: <CircleParking className="h-5 w-5" />
+    icon: <CircleParking className="h-5 w-5" />,
+    features: {
+      surveillance: true,
+      evCharging: false,
+      covered: false
+    }
   },
   {
     id: 'covered',
@@ -60,7 +92,12 @@ const parkingOptions: ParkingOption[] = [
     description: 'Sheltered parking with protection',
     pricePerHour: 4.75,
     availableSpots: 8,
-    icon: <CircleParking className="h-5 w-5" />
+    icon: <CircleParking className="h-5 w-5" />,
+    features: {
+      surveillance: true,
+      evCharging: false,
+      covered: true
+    }
   },
   {
     id: 'valet',
@@ -68,7 +105,12 @@ const parkingOptions: ParkingOption[] = [
     description: 'Premium valet parking service',
     pricePerHour: 7.90,
     availableSpots: 3,
-    icon: <Car className="h-5 w-5" />
+    icon: <Car className="h-5 w-5" />,
+    features: {
+      surveillance: true,
+      evCharging: true,
+      covered: true
+    }
   }
 ];
 
@@ -81,6 +123,11 @@ const nearbyParkingSpots: ParkingSpot[] = [
     rating: 4.5,
     pricePerHour: 3.50,
     availableSpots: 25,
+    features: {
+      surveillance: true,
+      evCharging: true,
+      covered: false
+    },
     options: parkingOptions
   },
   {
@@ -91,6 +138,11 @@ const nearbyParkingSpots: ParkingSpot[] = [
     rating: 4.2,
     pricePerHour: 2.75,
     availableSpots: 10,
+    features: {
+      surveillance: true,
+      evCharging: false,
+      covered: true
+    },
     options: parkingOptions
   },
   {
@@ -101,6 +153,11 @@ const nearbyParkingSpots: ParkingSpot[] = [
     rating: 4.8,
     pricePerHour: 5.00,
     availableSpots: 5,
+    features: {
+      surveillance: false,
+      evCharging: true,
+      covered: false
+    },
     options: parkingOptions
   }
 ];
@@ -110,11 +167,10 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   const [selectedParking, setSelectedParking] = useState<ParkingSpot | null>(null);
   const [selectedOption, setSelectedOption] = useState<ParkingType>('regular');
   const [bookingStep, setBookingStep] = useState<'search' | 'spots' | 'options' | 'payment' | 'confirmation'>('search');
-  const [arrivalDate, setArrivalDate] = useState('');
-  const [arrivalTime, setArrivalTime] = useState('');
-  const [departureDate, setDepartureDate] = useState('');
-  const [departureTime, setDepartureTime] = useState('');
   const [duration, setDuration] = useState(1); // hours
+  const [reserveDate, setReserveDate] = useState('');
+  const [reserveTime, setReserveTime] = useState('');
+  const [reserveDuration, setReserveDuration] = useState(1); // hours
   const [totalPrice, setTotalPrice] = useState(0);
   const { toast } = useToast();
 
@@ -129,10 +185,13 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     if (selectedParking && selectedOption) {
       const option = selectedParking.options.find(opt => opt.id === selectedOption);
       if (option) {
-        setTotalPrice(option.pricePerHour * duration);
+        const basePrice = option.pricePerHour * duration;
+        // Add a 10% surcharge for reservations
+        const surcharge = bookingStep !== 'search' ? 0.1 * basePrice : 0;
+        setTotalPrice(basePrice + surcharge);
       }
     }
-  }, [selectedParking, selectedOption, duration]);
+  }, [selectedParking, selectedOption, duration, bookingStep]);
 
   const handleFindParking = () => {
     if (!location) {
@@ -151,13 +210,6 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   };
 
   const handleProceedToPayment = () => {
-    if (!arrivalDate || !arrivalTime || !departureDate || !departureTime) {
-      toast({
-        title: "Please select arrival and departure times",
-        variant: "destructive"
-      });
-      return;
-    }
     setBookingStep('payment');
   };
 
@@ -188,6 +240,31 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     }
   };
 
+  const renderFeatureBadges = (features: { surveillance: boolean, evCharging: boolean, covered: boolean }) => {
+    return (
+      <div className="flex flex-wrap gap-1 mt-1">
+        {features.surveillance && (
+          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-blue-50">
+            <Shield className="h-3 w-3" />
+            24/7
+          </Badge>
+        )}
+        {features.evCharging && (
+          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-green-50">
+            <Zap className="h-3 w-3" />
+            EV
+          </Badge>
+        )}
+        {features.covered && (
+          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-purple-50">
+            <CircleParking className="h-3 w-3" />
+            Covered
+          </Badge>
+        )}
+      </div>
+    );
+  };
+
   const renderBookingStep = () => {
     switch (bookingStep) {
       case 'search':
@@ -202,6 +279,20 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   onChange={(e) => setLocation(e.target.value)}
                   className="pl-10"
                 />
+              </div>
+              <div>
+                <Label htmlFor="duration">Duration (hours)</Label>
+                <div className="relative">
+                  <Timer className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input 
+                    id="duration"
+                    type="number" 
+                    min="1"
+                    value={duration}
+                    onChange={(e) => setDuration(parseInt(e.target.value))}
+                    className="pl-10"
+                  />
+                </div>
               </div>
             </div>
             <Button className="w-full" onClick={handleFindParking}>
@@ -234,8 +325,9 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                     <div className="font-medium">{spot.name}</div>
                     <div className="text-sm">{spot.distance}</div>
                   </div>
-                  <div className="text-sm text-muted-foreground mb-2">{spot.address}</div>
-                  <div className="flex justify-between items-center">
+                  <div className="text-sm text-muted-foreground mb-1">{spot.address}</div>
+                  {renderFeatureBadges(spot.features)}
+                  <div className="flex justify-between items-center mt-2">
                     <div className="flex items-center space-x-2">
                       <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">
                         {spot.availableSpots} spots
@@ -268,7 +360,8 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
             <div className="bg-muted/40 p-3 rounded-lg text-sm mb-4">
               <div className="font-medium mb-1">{selectedParking?.name}</div>
               <div className="text-muted-foreground mb-1">{selectedParking?.address}</div>
-              <div className="flex items-center space-x-2">
+              {selectedParking && renderFeatureBadges(selectedParking.features)}
+              <div className="flex items-center space-x-2 mt-2">
                 <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">
                   {selectedParking?.availableSpots} spots
                 </div>
@@ -299,6 +392,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                       <div>
                         <p className="font-medium">{option.name}</p>
                         <p className="text-xs text-muted-foreground">{option.description}</p>
+                        {option.features && renderFeatureBadges(option.features)}
                       </div>
                     </div>
                     <div className="text-right">
@@ -307,77 +401,6 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="arrival-date">Arrival Date</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input 
-                      id="arrival-date"
-                      type="date" 
-                      className="pl-10"
-                      value={arrivalDate}
-                      onChange={(e) => setArrivalDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="arrival-time">Arrival Time</Label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input 
-                      id="arrival-time"
-                      type="time" 
-                      className="pl-10"
-                      value={arrivalTime}
-                      onChange={(e) => setArrivalTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="departure-date">Departure Date</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input 
-                      id="departure-date"
-                      type="date" 
-                      className="pl-10"
-                      value={departureDate}
-                      onChange={(e) => setDepartureDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="departure-time">Departure Time</Label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input 
-                      id="departure-time"
-                      type="time" 
-                      className="pl-10"
-                      value={departureTime}
-                      onChange={(e) => setDepartureTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="duration">Duration (hours)</Label>
-                <Input 
-                  id="duration"
-                  type="number" 
-                  min="1"
-                  value={duration}
-                  onChange={(e) => setDuration(parseInt(e.target.value))}
-                />
               </div>
             </div>
             
@@ -411,10 +434,11 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                 {selectedParking?.options.find(o => o.id === selectedOption)?.name} Parking
               </div>
               <div className="flex justify-between items-center text-xs">
-                <div>Arrival: {arrivalDate} {arrivalTime}</div>
-                <div>Departure: {departureDate} {departureTime}</div>
+                <div className="flex items-center">
+                  <Timer className="h-3 w-3 mr-1" />
+                  Duration: {duration} hours
+                </div>
               </div>
-              <div className="mt-2 text-xs">Duration: {duration} hours</div>
             </div>
             
             <div className="space-y-3">
@@ -487,17 +511,9 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                 <div className="text-sm">{selectedParking?.address}</div>
               </div>
               
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <div className="text-sm text-muted-foreground">Arrival</div>
-                  <div className="font-medium">{arrivalDate}</div>
-                  <div className="text-sm">{arrivalTime}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Departure</div>
-                  <div className="font-medium">{departureDate}</div>
-                  <div className="text-sm">{departureTime}</div>
-                </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Duration</div>
+                <div className="font-medium">{duration} hours</div>
               </div>
               
               <div>
@@ -543,23 +559,75 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
           
           <TabsContent value="later" className="mt-0">
             <div className="space-y-4">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input placeholder="Where are you looking for parking?" className="pl-10" />
+                  <Input 
+                    placeholder="Where are you looking for parking?" 
+                    className="pl-10"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input type="date" className="pl-10" />
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="reserve-date">Date</Label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input 
+                        id="reserve-date"
+                        type="date" 
+                        className="pl-10"
+                        value={reserveDate}
+                        onChange={(e) => setReserveDate(e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input type="time" className="pl-10" />
+                  <div>
+                    <Label htmlFor="reserve-time">Time</Label>
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input 
+                        id="reserve-time"
+                        type="time" 
+                        className="pl-10"
+                        value={reserveTime}
+                        onChange={(e) => setReserveTime(e.target.value)}
+                      />
+                    </div>
                   </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="reserve-duration">Duration (hours)</Label>
+                  <div className="relative">
+                    <Timer className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Input 
+                      id="reserve-duration"
+                      type="number" 
+                      min="1"
+                      value={reserveDuration}
+                      onChange={(e) => setReserveDuration(parseInt(e.target.value))}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                
+                <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded flex items-start">
+                  <svg className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
+                  </svg>
+                  Reservations include a 10% surcharge
                 </div>
               </div>
-              <Button className="w-full">Find Parking Spots</Button>
+              <Button 
+                className="w-full" 
+                onClick={handleFindParking}
+                disabled={!location || !reserveDate || !reserveTime || reserveDuration < 1}
+              >
+                Find Parking Spots
+              </Button>
             </div>
           </TabsContent>
         </Tabs>
