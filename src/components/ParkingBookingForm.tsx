@@ -12,7 +12,8 @@ import {
   Zap,
   Timer,
   Heart,
-  Search
+  Search,
+  Bike
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,13 +43,26 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useParking } from '@/contexts/ParkingContext';
+import { useUser } from '@/contexts/UserContext';
+import VehicleTypeSelector from './VehicleTypeSelector';
+import ParkingReceipt from './ParkingReceipt';
+import SignInForm from './SignInForm';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { generateOrderId, formatDate, formatTime } from '@/utils/helpers';
 
 type ParkingType = 'regular' | 'covered' | 'valet';
+type VehicleType = 'car' | 'bike';
 
 const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: number; lng: number } | null }) => {
   const [location, setLocation] = useState('');
   const [selectedParking, setSelectedParking] = useState<any | null>(null);
   const [selectedOption, setSelectedOption] = useState<ParkingType>('regular');
+  const [vehicleType, setVehicleType] = useState<VehicleType>('car');
+  const [vehicleNumber, setVehicleNumber] = useState('');
   const [bookingStep, setBookingStep] = useState<'search' | 'spots' | 'options' | 'payment' | 'confirmation'>('search');
   const [duration, setDuration] = useState(1); // hours
   const [reserveDate, setReserveDate] = useState('');
@@ -57,6 +71,9 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   const [totalPrice, setTotalPrice] = useState(0);
   const [activeTab, setActiveTab] = useState('now');
   const { toast } = useToast();
+  const [showSignInDialog, setShowSignInDialog] = useState(false);
+  const [showReceiptDialog, setShowReceiptDialog] = useState(false);
+  const [currentBooking, setCurrentBooking] = useState<any>(null);
 
   // Use the parking context
   const { 
@@ -66,8 +83,12 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     locationParkings,
     saveParking,
     removeParking,
-    isSaved
+    isSaved,
+    addBooking
   } = useParking();
+
+  // Use the user context
+  const { user, isAuthenticated, signIn } = useUser();
 
   const nearbyParkingSpots = getFilteredParkings();
 
@@ -82,13 +103,17 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     if (selectedParking && selectedOption) {
       const option = selectedParking.options.find((opt: any) => opt.id === selectedOption);
       if (option) {
+        // Apply discount for bikes
         const basePrice = option.pricePerHour * (activeTab === 'now' ? duration : reserveDuration);
+        const discount = vehicleType === 'bike' ? 0.4 : 0; // 40% off for bikes
+        const discountedPrice = basePrice * (1 - discount);
+        
         // Add a $5 surcharge for reservations
         const surcharge = activeTab === 'later' ? 5 : 0;
-        setTotalPrice(basePrice + surcharge);
+        setTotalPrice(discountedPrice + surcharge);
       }
     }
-  }, [selectedParking, selectedOption, duration, reserveDuration, activeTab]);
+  }, [selectedParking, selectedOption, duration, reserveDuration, activeTab, vehicleType]);
 
   const handleFindParking = () => {
     if (!location) {
@@ -115,6 +140,20 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   };
 
   const handleProceedToPayment = () => {
+    if (!isAuthenticated) {
+      setShowSignInDialog(true);
+      return;
+    }
+    
+    if (!vehicleNumber) {
+      toast({
+        title: "Vehicle number required",
+        description: "Please enter your vehicle number",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setBookingStep('payment');
   };
 
@@ -123,13 +162,60 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     console.log("Decreasing available spots for", selectedParking?.name);
   };
 
+  const handleSignInSuccess = () => {
+    // Sign in the user with default data
+    signIn({
+      id: '1',
+      name: 'John Doe',
+      phone: '1234567890',
+      email: 'john.doe@example.com',
+      rating: 4.9,
+      bookingCount: 24,
+      memberSince: 'April 2025'
+    });
+    
+    setShowSignInDialog(false);
+    toast({
+      title: "Signed in successfully",
+      description: "You can now proceed with your booking"
+    });
+  };
+
   const handleConfirmBooking = () => {
     decreaseAvailableSpots();
+    
+    const now = new Date();
+    const orderId = generateOrderId();
+    
+    const booking = {
+      id: orderId,
+      orderId: orderId,
+      parkingId: selectedParking.id,
+      parkingName: selectedParking.name,
+      parkingAddress: selectedParking.address,
+      parkingType: selectedParking.options.find((o: any) => o.id === selectedOption)?.name,
+      vehicleType,
+      vehicleNumber,
+      date: activeTab === 'now' ? formatDate(now) : reserveDate,
+      time: activeTab === 'now' ? formatTime(now) : reserveTime,
+      duration: activeTab === 'now' ? duration : reserveDuration,
+      totalPrice,
+      status: activeTab === 'now' ? 'ongoing' : 'upcoming',
+      timestamp: now.getTime(),
+      features: selectedParking.features
+    };
+    
+    // Add to booking history
+    addBooking(booking);
+    
+    // Set current booking for receipt
+    setCurrentBooking(booking);
+    
+    // Show receipt
+    setShowReceiptDialog(true);
+    
+    // Reset form
     setBookingStep('confirmation');
-    toast({
-      title: "Booking confirmed!",
-      description: "Your parking spot has been reserved."
-    });
   };
 
   const handleBackStep = () => {
@@ -147,6 +233,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
         setBookingStep('search'); // Reset to initial state
         setSelectedParking(null);
         setLocation('');
+        setVehicleNumber('');
         break;
     }
   };
@@ -248,6 +335,11 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   />
                 </div>
               </div>
+              
+              <VehicleTypeSelector 
+                selectedType={vehicleType} 
+                onChange={setVehicleType} 
+              />
             </div>
             <Button className="w-full" onClick={handleFindParking}>
               Find Parking
@@ -293,11 +385,11 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                     <div className="font-medium">${spot.pricePerHour.toFixed(2)}/hr</div>
                   </div>
                   
-                  {/* Save parking button */}
+                  {/* Save parking button - moved to the bottom right area */}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-2 right-2 h-8 w-8"
+                    className="absolute bottom-2 right-2 h-8 w-8"
                     onClick={(e) => handleToggleSaveParking(spot, e)}
                   >
                     <Heart className={`h-5 w-5 ${isSaved(spot.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
@@ -344,6 +436,32 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                 <Heart className={`h-5 w-5 ${selectedParking && isSaved(selectedParking.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
               </Button>
             </div>
+
+            <div className="space-y-2 mb-4">
+              <VehicleTypeSelector 
+                selectedType={vehicleType} 
+                onChange={setVehicleType} 
+              />
+              
+              <div>
+                <Label htmlFor="vehicleNumber">Vehicle Number (Required)</Label>
+                <div className="relative">
+                  {vehicleType === 'car' ? (
+                    <Car className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  ) : (
+                    <Bike className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  )}
+                  <Input 
+                    id="vehicleNumber"
+                    value={vehicleNumber}
+                    onChange={(e) => setVehicleNumber(e.target.value)}
+                    className="pl-10"
+                    placeholder="Enter vehicle number"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
             
             <div className="space-y-2 mb-4">
               <p className="text-sm font-medium">Choose parking type</p>
@@ -383,13 +501,20 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               </div>
             </div>
             
+            {vehicleType === 'bike' && (
+              <div className="p-2 bg-green-50 rounded-md text-sm text-green-600 flex items-center">
+                <Bike className="h-4 w-4 mr-2" />
+                40% discount applied for bikes!
+              </div>
+            )}
+            
             <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg">
               <div className="text-sm font-medium">Total Price</div>
               <div className="text-lg font-semibold">${totalPrice.toFixed(2)}</div>
             </div>
             
             <Button className="w-full" onClick={handleProceedToPayment}>
-              Proceed to Payment
+              {isAuthenticated ? 'Proceed to Payment' : 'Sign In to Continue'}
             </Button>
           </div>
         );
@@ -423,16 +548,21 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   </div>
                 )}
               </div>
-              
-              {/* Save parking button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-2 right-2 h-8 w-8"
-                onClick={() => selectedParking && handleToggleSaveParking(selectedParking)}
-              >
-                <Heart className={`h-5 w-5 ${selectedParking && isSaved(selectedParking.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-              </Button>
+              <div className="flex items-center text-xs mt-1">
+                <div className="flex items-center mr-3">
+                  {vehicleType === 'car' ? (
+                    <Car className="h-3 w-3 mr-1" />
+                  ) : (
+                    <Bike className="h-3 w-3 mr-1" />
+                  )}
+                  {vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1)}: {vehicleNumber}
+                </div>
+                {vehicleType === 'bike' && (
+                  <div className="text-green-600">
+                    40% discount
+                  </div>
+                )}
+              </div>
             </div>
             
             <div className="space-y-3">
@@ -495,39 +625,21 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                 </svg>
               </div>
               <h3 className="text-xl font-semibold mb-1">Booking Confirmed!</h3>
-              <p className="text-sm text-muted-foreground mb-6">Your parking spot has been reserved</p>
-            </div>
-            
-            <div className="bg-muted/40 p-4 rounded-lg space-y-3">
-              <div>
-                <div className="text-sm text-muted-foreground">Parking Location</div>
-                <div className="font-medium">{selectedParking?.name}</div>
-                <div className="text-sm">{selectedParking?.address}</div>
-              </div>
-              
-              <div>
-                <div className="text-sm text-muted-foreground">Duration</div>
-                <div className="font-medium">{activeTab === 'now' ? duration : reserveDuration} hours</div>
-              </div>
-              
-              <div>
-                <div className="text-sm text-muted-foreground">Parking Type</div>
-                <div className="font-medium">
-                  {selectedParking?.options.find((o: any) => o.id === selectedOption)?.name}
+              <p className="text-sm text-muted-foreground mb-2">Your parking spot has been reserved</p>
+              {currentBooking && (
+                <div className="text-sm font-medium text-primary">
+                  Order ID: {currentBooking.orderId}
                 </div>
-              </div>
-              
-              <div className="pt-2 border-t">
-                <div className="flex justify-between font-medium">
-                  <div>Total</div>
-                  <div>${totalPrice.toFixed(2)}</div>
-                </div>
-              </div>
+              )}
             </div>
             
             <div className="space-y-2">
-              <Button className="w-full" variant="outline">
-                View Booking Details
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setShowReceiptDialog(true)}
+              >
+                View Receipt
               </Button>
               <Button className="w-full" onClick={() => setBookingStep('search')}>
                 Book Another Spot
@@ -539,107 +651,136 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   };
 
   return (
-    <Card className="w-full shadow-lg border-none">
-      <CardContent className="p-4">
-        <Tabs 
-          defaultValue="now" 
-          className="w-full" 
-          value={activeTab}
-          onValueChange={(value) => {
-            setActiveTab(value);
-            setBookingStep('search');
-          }}
-        >
-          <TabsList className="w-full mb-4">
-            <TabsTrigger value="now" className="flex-1">Park Now</TabsTrigger>
-            <TabsTrigger value="later" className="flex-1">Reserve</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="now" className="mt-0">
-            {renderBookingStep()}
-          </TabsContent>
-          
-          <TabsContent value="later" className="mt-0">
-            {bookingStep === 'search' ? (
-              <div className="space-y-4">
-                <div className="space-y-3">
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input 
-                      placeholder="Where are you looking for parking?" 
-                      className="pl-10"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                    />
-                  </div>
-                  {renderAvailableLocations()}
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="reserve-date">Date</Label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                        <Input 
-                          id="reserve-date"
-                          type="date" 
-                          className="pl-10"
-                          value={reserveDate}
-                          onChange={(e) => setReserveDate(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="reserve-time">Time</Label>
-                      <div className="relative">
-                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                        <Input 
-                          id="reserve-time"
-                          type="time" 
-                          className="pl-10"
-                          value={reserveTime}
-                          onChange={(e) => setReserveTime(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="reserve-duration">Duration (hours)</Label>
+    <>
+      <Card className="w-full shadow-lg border-none">
+        <CardContent className="p-4">
+          <Tabs 
+            defaultValue="now" 
+            className="w-full" 
+            value={activeTab}
+            onValueChange={(value) => {
+              setActiveTab(value);
+              setBookingStep('search');
+            }}
+          >
+            <TabsList className="w-full mb-4">
+              <TabsTrigger value="now" className="flex-1">Park Now</TabsTrigger>
+              <TabsTrigger value="later" className="flex-1">Reserve</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="now" className="mt-0">
+              {renderBookingStep()}
+            </TabsContent>
+            
+            <TabsContent value="later" className="mt-0">
+              {bookingStep === 'search' ? (
+                <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="relative">
-                      <Timer className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
                       <Input 
-                        id="reserve-duration"
-                        type="number" 
-                        min="1"
-                        value={reserveDuration}
-                        onChange={(e) => setReserveDuration(parseInt(e.target.value))}
+                        placeholder="Where are you looking for parking?" 
                         className="pl-10"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
                       />
                     </div>
+                    {renderAvailableLocations()}
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="reserve-date">Date</Label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                          <Input 
+                            id="reserve-date"
+                            type="date" 
+                            className="pl-10"
+                            value={reserveDate}
+                            onChange={(e) => setReserveDate(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="reserve-time">Time</Label>
+                        <div className="relative">
+                          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                          <Input 
+                            id="reserve-time"
+                            type="time" 
+                            className="pl-10"
+                            value={reserveTime}
+                            onChange={(e) => setReserveTime(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="reserve-duration">Duration (hours)</Label>
+                      <div className="relative">
+                        <Timer className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                        <Input 
+                          id="reserve-duration"
+                          type="number" 
+                          min="1"
+                          value={reserveDuration}
+                          onChange={(e) => setReserveDuration(parseInt(e.target.value))}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                    
+                    <VehicleTypeSelector 
+                      selectedType={vehicleType} 
+                      onChange={setVehicleType} 
+                    />
+                    
+                    <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded flex items-start">
+                      <svg className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
+                      </svg>
+                      Reservations include a $5 surcharge
+                    </div>
                   </div>
-                  
-                  <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded flex items-start">
-                    <svg className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
-                    </svg>
-                    Reservations include a $5 surcharge
-                  </div>
+                  <Button 
+                    className="w-full" 
+                    onClick={handleFindParking}
+                    disabled={!location || !reserveDate || !reserveTime || reserveDuration < 1}
+                  >
+                    Find Parking Spots
+                  </Button>
                 </div>
-                <Button 
-                  className="w-full" 
-                  onClick={handleFindParking}
-                  disabled={!location || !reserveDate || !reserveTime || reserveDuration < 1}
-                >
-                  Find Parking Spots
-                </Button>
-              </div>
-            ) : (
-              renderBookingStep()
-            )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+              ) : (
+                renderBookingStep()
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* Sign In Dialog */}
+      <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
+        <DialogContent className="sm:max-w-md">
+          <SignInForm 
+            onSuccess={handleSignInSuccess}
+            onCancel={() => setShowSignInDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Receipt Dialog */}
+      <Dialog open={showReceiptDialog} onOpenChange={setShowReceiptDialog}>
+        <DialogContent className="sm:max-w-md">
+          {currentBooking && (
+            <ParkingReceipt 
+              booking={currentBooking}
+              onClose={() => setShowReceiptDialog(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

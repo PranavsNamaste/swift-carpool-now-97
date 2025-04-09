@@ -1,0 +1,38 @@
+
+import React from 'react';
+import { Car, Bike } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+type VehicleType = 'car' | 'bike';
+
+interface VehicleTypeSelectorProps {
+  selectedType: VehicleType;
+  onChange: (type: VehicleType) => void;
+}
+
+const VehicleTypeSelector = ({ selectedType, onChange }: VehicleTypeSelectorProps) => {
+  return (
+    <div className="flex gap-2 w-full mb-3">
+      <Button
+        type="button"
+        variant={selectedType === 'car' ? 'default' : 'outline'}
+        className="flex-1 flex items-center justify-center gap-2"
+        onClick={() => onChange('car')}
+      >
+        <Car className="h-4 w-4" />
+        Car
+      </Button>
+      <Button
+        type="button"
+        variant={selectedType === 'bike' ? 'default' : 'outline'}
+        className="flex-1 flex items-center justify-center gap-2"
+        onClick={() => onChange('bike')}
+      >
+        <Bike className="h-4 w-4" />
+        Bike
+      </Button>
+    </div>
+  );
+};
+
+export default VehicleTypeSelector;
