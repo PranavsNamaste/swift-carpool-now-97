@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   MapPin, 
@@ -14,7 +13,9 @@ import {
   Heart,
   Search,
   Bike,
-  AlertTriangle
+  AlertTriangle,
+  Plus,
+  Minus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,6 +77,8 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [currentBooking, setCurrentBooking] = useState<any>(null);
   const [locationError, setLocationError] = useState('');
+  const [tabChangeConfirm, setTabChangeConfirm] = useState(false);
+  const [confirmationTarget, setConfirmationTarget] = useState('');
 
   // Use the parking context
   const { 
@@ -93,7 +96,15 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   // Use the user context
   const { user, isAuthenticated, signIn } = useUser();
 
-  const nearbyParkingSpots = getFilteredParkings();
+  // Get filtered parkings based on the vehicle type
+  const getNearbyParkingSpots = () => {
+    const spots = getFilteredParkings();
+    return spots.filter(spot => 
+      vehicleType === 'car' ? spot.availableSpotsCar > 0 : spot.availableSpotsMotorbike > 0
+    );
+  };
+
+  const nearbyParkingSpots = getNearbyParkingSpots();
 
   useEffect(() => {
     if (selectedLocation) {
@@ -104,17 +115,24 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
 
   useEffect(() => {
     if (selectedParking && selectedOption) {
-      const option = selectedParking.options.find((opt: any) => opt.id === selectedOption);
-      if (option) {
-        // Get base price based on vehicle type
-        const basePrice = vehicleType === 'car' 
-          ? option.pricePerHour * (activeTab === 'now' ? duration : reserveDuration)
-          : option.pricePerHourBike * (activeTab === 'now' ? duration : reserveDuration);
-        
-        // Add a $5 surcharge for reservations
-        const surcharge = activeTab === 'later' ? 5 : 0;
-        setTotalPrice(basePrice + surcharge);
+      let baseHours = activeTab === 'now' ? duration : reserveDuration;
+      let basePricePerHour = vehicleType === 'car' 
+        ? selectedParking.options.find((opt: any) => opt.id === selectedOption)?.pricePerHour || 0
+        : selectedParking.options.find((opt: any) => opt.id === selectedOption)?.pricePerHourBike || 0;
+      
+      // Apply discount for longer durations
+      let discount = 0;
+      if (baseHours >= 4) {
+        discount = vehicleType === 'car' ? 0.1 : 0.15; // 10% for cars, 15% for bikes
       }
+      
+      // Calculate price with discount
+      let price = basePricePerHour * baseHours;
+      price = price - (price * discount);
+      
+      // Add a $5 surcharge for reservations
+      const surcharge = activeTab === 'later' ? 5 : 0;
+      setTotalPrice(price + surcharge);
     }
   }, [selectedParking, selectedOption, duration, reserveDuration, activeTab, vehicleType]);
 
@@ -249,6 +267,32 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
     }
   };
 
+  const handleTabChange = (value: string) => {
+    // If we are in the middle of a booking process (not search or confirmation), show confirmation
+    if (bookingStep !== 'search' && bookingStep !== 'confirmation') {
+      setConfirmationTarget(value);
+      setTabChangeConfirm(true);
+    } else {
+      // Otherwise, change tab directly
+      setActiveTab(value);
+      setBookingStep('search');
+    }
+  };
+
+  const confirmTabChange = () => {
+    if (confirmationTarget) {
+      setActiveTab(confirmationTarget);
+      setBookingStep('search');
+      setTabChangeConfirm(false);
+      setConfirmationTarget('');
+    }
+  };
+
+  const cancelTabChange = () => {
+    setTabChangeConfirm(false);
+    setConfirmationTarget('');
+  };
+
   const handleToggleSaveParking = (parking: any, event?: React.MouseEvent) => {
     if (event) {
       event.stopPropagation();
@@ -318,24 +362,71 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
   };
 
   const renderPriceDisplay = (option: any) => {
+    const currentHours = activeTab === 'now' ? duration : reserveDuration;
+    const hasDiscount = currentHours >= 4;
+    const carDiscount = hasDiscount ? 0.1 : 0; // 10% for cars when hours >= 4
+    const bikeDiscount = hasDiscount ? 0.15 : 0; // 15% for bikes when hours >= 4
+    
+    const carPrice = option.pricePerHour * (1 - carDiscount);
+    const bikePrice = option.pricePerHourBike * (1 - bikeDiscount);
+    
     return (
       <div className="text-right">
-        <div className="font-medium">
-          <div className="flex items-center justify-end gap-1">
-            <Car className="h-3.5 w-3.5" />
-            <span>${option.pricePerHour.toFixed(2)}/hr</span>
-          </div>
-          <div className="flex items-center justify-end gap-1 text-green-600">
-            <Bike className="h-3.5 w-3.5" />
-            <span className="line-through text-gray-400 mr-1">${option.pricePerHour.toFixed(2)}/hr</span>
-            ${option.pricePerHourBike.toFixed(2)}/hr
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Car: {option.availableSpotsCar} | Bike: {option.availableSpotsMotorbike}
-        </p>
+        {vehicleType === 'car' ? (
+          <>
+            <div className="font-medium">
+              <div className="flex items-center justify-end gap-1">
+                <Car className="h-3.5 w-3.5" />
+                <span>
+                  {hasDiscount ? (
+                    <>
+                      <span className="line-through text-gray-400 mr-1">${option.pricePerHour.toFixed(2)}/hr</span>
+                      ${carPrice.toFixed(2)}/hr
+                    </>
+                  ) : (
+                    <>${option.pricePerHour.toFixed(2)}/hr</>
+                  )}
+                </span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Available spots: {option.availableSpotsCar}
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="font-medium text-green-600">
+              <div className="flex items-center justify-end gap-1">
+                <Bike className="h-3.5 w-3.5" />
+                <span>
+                  {hasDiscount ? (
+                    <>
+                      <span className="line-through text-gray-400 mr-1">${option.pricePerHourBike.toFixed(2)}/hr</span>
+                      ${bikePrice.toFixed(2)}/hr
+                    </>
+                  ) : (
+                    <>${option.pricePerHourBike.toFixed(2)}/hr</>
+                  )}
+                </span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Available spots: {option.availableSpotsMotorbike}
+            </p>
+          </>
+        )}
       </div>
     );
+  };
+
+  const adjustDuration = (amount: number) => {
+    if (activeTab === 'now') {
+      const newDuration = Math.max(1, duration + amount);
+      setDuration(newDuration);
+    } else {
+      const newDuration = Math.max(1, reserveDuration + amount);
+      setReserveDuration(newDuration);
+    }
   };
 
   const renderBookingStep = () => {
@@ -371,8 +462,11 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                     id="duration"
                     type="number" 
                     min="1"
-                    value={duration}
-                    onChange={(e) => setDuration(parseInt(e.target.value))}
+                    value={activeTab === 'now' ? duration : reserveDuration}
+                    onChange={(e) => activeTab === 'now' ? 
+                      setDuration(parseInt(e.target.value)) : 
+                      setReserveDuration(parseInt(e.target.value))
+                    }
                     className="pl-10"
                   />
                 </div>
@@ -418,29 +512,34 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   <div className="flex justify-between items-center mt-2">
                     <div className="flex items-center space-x-2">
                       <div className="flex items-center gap-2">
-                        <div className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
-                          <Car className="h-3 w-3 mr-1" />
-                          {spot.availableSpotsCar}
-                        </div>
-                        <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
-                          <Bike className="h-3 w-3 mr-1" />
-                          {spot.availableSpotsMotorbike}
-                        </div>
+                        {vehicleType === 'car' ? (
+                          <div className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
+                            <Car className="h-3 w-3 mr-1" />
+                            {spot.availableSpotsCar}
+                          </div>
+                        ) : (
+                          <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
+                            <Bike className="h-3 w-3 mr-1" />
+                            {spot.availableSpotsMotorbike}
+                          </div>
+                        )}
                       </div>
                       <div className="text-yellow-500 flex items-center text-xs">
                         ★ {spot.rating}
                       </div>
                     </div>
                     <div className="flex flex-col items-end mr-6">
-                      <div className="flex items-center gap-1">
-                        <Car className="h-3.5 w-3.5" />
-                        <span className="font-medium">${spot.pricePerHour.toFixed(2)}/hr</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-green-600 text-xs">
-                        <Bike className="h-3 w-3" />
-                        <span className="line-through text-gray-400 mr-1">${spot.pricePerHour.toFixed(2)}/hr</span>
-                        ${spot.pricePerHourBike.toFixed(2)}/hr
-                      </div>
+                      {vehicleType === 'car' ? (
+                        <div className="flex items-center gap-1">
+                          <Car className="h-3.5 w-3.5" />
+                          <span className="font-medium">${spot.pricePerHour.toFixed(2)}/hr</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-green-600">
+                          <Bike className="h-3.5 w-3.5" />
+                          <span className="font-medium">${spot.pricePerHourBike.toFixed(2)}/hr</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -478,14 +577,17 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               {selectedParking && renderFeatureBadges(selectedParking.features)}
               <div className="flex items-center space-x-2 mt-2">
                 <div className="flex items-center gap-2">
-                  <div className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
-                    <Car className="h-3 w-3 mr-1" />
-                    {selectedParking?.availableSpotsCar}
-                  </div>
-                  <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
-                    <Bike className="h-3 w-3 mr-1" />
-                    {selectedParking?.availableSpotsMotorbike}
-                  </div>
+                  {vehicleType === 'car' ? (
+                    <div className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
+                      <Car className="h-3 w-3 mr-1" />
+                      {selectedParking?.availableSpotsCar}
+                    </div>
+                  ) : (
+                    <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium flex items-center">
+                      <Bike className="h-3 w-3 mr-1" />
+                      {selectedParking?.availableSpotsMotorbike}
+                    </div>
+                  )}
                 </div>
                 <div className="text-yellow-500 flex items-center text-xs">
                   ★ {selectedParking?.rating}
@@ -527,6 +629,38 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   />
                 </div>
               </div>
+
+              <div className="mt-3">
+                <Label>Duration (hours)</Label>
+                <div className="flex items-center mt-1">
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={() => adjustDuration(-1)}
+                    disabled={(activeTab === 'now' ? duration : reserveDuration) <= 1}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <div className="mx-3 text-center min-w-[2rem]">
+                    {activeTab === 'now' ? duration : reserveDuration}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={() => adjustDuration(1)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  
+                  {(activeTab === 'now' ? duration : reserveDuration) >= 4 && (
+                    <Badge className="ml-3 bg-green-100 text-green-700 hover:bg-green-200">
+                      {vehicleType === 'car' ? '10%' : '15%'} off
+                    </Badge>
+                  )}
+                </div>
+              </div>
             </div>
             
             <div className="space-y-2 mb-4">
@@ -565,15 +699,15 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
             </div>
             
             <div className="p-2 bg-green-50 rounded-md text-sm text-green-600 flex items-center">
-              {vehicleType === 'bike' ? (
+              {(activeTab === 'now' ? duration : reserveDuration) >= 4 ? (
                 <>
-                  <Bike className="h-4 w-4 mr-2" />
-                  40% discount applied for bikes! Save on your parking.
+                  <Timer className="h-4 w-4 mr-2" />
+                  {vehicleType === 'car' ? '10%' : '15%'} discount applied for booking {activeTab === 'now' ? duration : reserveDuration} hours!
                 </>
               ) : (
                 <>
-                  <Car className="h-4 w-4 mr-2" />
-                  Switch to bike for a 40% discount on parking!
+                  <Timer className="h-4 w-4 mr-2" />
+                  Book for 4+ hours to get {vehicleType === 'car' ? '10%' : '15%'} discount!
                 </>
               )}
             </div>
@@ -627,9 +761,9 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
                   )}
                   {vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1)}: {vehicleNumber}
                 </div>
-                {vehicleType === 'bike' && (
+                {(activeTab === 'now' ? duration : reserveDuration) >= 4 && (
                   <div className="text-green-600">
-                    40% discount
+                    {vehicleType === 'car' ? '10%' : '15%'} discount
                   </div>
                 )}
               </div>
@@ -728,10 +862,7 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
             defaultValue="now" 
             className="w-full" 
             value={activeTab}
-            onValueChange={(value) => {
-              setActiveTab(value);
-              setBookingStep('search');
-            }}
+            onValueChange={handleTabChange}
           >
             <TabsList className="w-full mb-4">
               <TabsTrigger value="now" className="flex-1">Park Now</TabsTrigger>
@@ -852,6 +983,26 @@ const ParkingBookingForm = ({ selectedLocation }: { selectedLocation?: { lat: nu
               onClose={() => setShowReceiptDialog(false)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Tab Change Confirmation Dialog */}
+      <Dialog open={tabChangeConfirm} onOpenChange={setTabChangeConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <div className="space-y-4 py-2">
+            <h3 className="text-lg font-semibold">Change Booking Type?</h3>
+            <p className="text-sm text-muted-foreground">
+              You are in the middle of a booking process. Changing tabs will reset your current progress.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={cancelTabChange}>
+                Stay Here
+              </Button>
+              <Button variant="destructive" onClick={confirmTabChange}>
+                Change Anyway
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </>

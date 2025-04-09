@@ -17,7 +17,7 @@ const VehicleTypeSelector = ({ selectedType, onChange, className = '' }: Vehicle
       <Button
         type="button"
         variant={selectedType === 'car' ? 'default' : 'outline'}
-        className="flex-1 flex items-center justify-center gap-2"
+        className={`flex-1 flex items-center justify-center gap-2 ${selectedType === 'car' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
         onClick={() => onChange('car')}
       >
         <Car className="h-4 w-4" />
@@ -26,7 +26,7 @@ const VehicleTypeSelector = ({ selectedType, onChange, className = '' }: Vehicle
       <Button
         type="button"
         variant={selectedType === 'bike' ? 'default' : 'outline'}
-        className="flex-1 flex items-center justify-center gap-2"
+        className={`flex-1 flex items-center justify-center gap-2 ${selectedType === 'bike' ? 'bg-green-600 hover:bg-green-700' : ''}`}
         onClick={() => onChange('bike')}
       >
         <Bike className="h-4 w-4" />
